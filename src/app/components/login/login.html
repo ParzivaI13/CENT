@@ -5,6 +5,23 @@
   </div>
 
   <div class="glass-card">
+    <!-- Settings Row: Theme + Language -->
+    <div class="login-settings-row">
+      <button class="btn-setting" (click)="themeService.toggleTheme()" [attr.title]="i18n.t(themeService.theme() === 'dark' ? 'theme.light' : 'theme.dark')">
+        @if (themeService.theme() === 'dark') {
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="setting-icon"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        } @else {
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="setting-icon"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        }
+        <span>{{ i18n.t(themeService.theme() === 'dark' ? 'theme.dark' : 'theme.light') }}</span>
+      </button>
+
+      <button class="btn-setting" (click)="i18n.toggleLang()">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="setting-icon"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+        <span>{{ i18n.t('lang.' + i18n.lang()) }}</span>
+      </button>
+    </div>
+
     <div class="brand-section">
       <div class="logo-box">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="logo-icon">
@@ -13,50 +30,53 @@
           <line x1="12" y1="22.08" x2="12" y2="12"></line>
         </svg>
       </div>
-      <h1 class="brand-title">CENT</h1>
-      <p class="brand-tagline">Cargo Efficient Navigator Tool</p>
+      <h1 class="brand-title">{{ i18n.t('common.appName') }}</h1>
+      <p class="brand-tagline">{{ i18n.t('common.tagline') }}</p>
     </div>
 
-    <h2 class="form-title">{{ isRegistering ? 'Create Account' : 'Welcome Back' }}</h2>
+    <h2 class="form-title">{{ isRegistering ? i18n.t('login.createAccount') : i18n.t('login.welcomeBack') }}</h2>
     
-    <div *ngIf="errorMessage" class="error-banner">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="error-icon">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="8" x2="12" y2="12"></line>
-        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-      </svg>
-      <span>{{ errorMessage }}</span>
-    </div>
+    @if (errorMessage) {
+      <div class="error-banner">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="error-icon">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>{{ errorMessage }}</span>
+      </div>
+    }
 
     <form (ngSubmit)="onSubmit()" #authForm="ngForm" class="auth-form">
       <div class="input-group">
-        <label for="email">Email Address</label>
+        <label for="email">{{ i18n.t('login.emailLabel') }}</label>
         <div class="input-wrapper">
-          <input type="email" id="email" name="email" [(ngModel)]="email" placeholder="driver@centcargo.com" required autocomplete="email" [disabled]="isLoading">
+          <input type="email" id="email" name="email" [(ngModel)]="email" [placeholder]="i18n.t('login.emailPlaceholder')" required autocomplete="email" [disabled]="isLoading">
           <svg xmlns="http://www.w3.org/2000/svg" class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
         </div>
       </div>
 
       <div class="input-group">
-        <label for="password">Password</label>
+        <label for="password">{{ i18n.t('login.passwordLabel') }}</label>
         <div class="input-wrapper">
-          <input type="password" id="password" name="password" [(ngModel)]="password" placeholder="••••••••" required autocomplete="current-password" [disabled]="isLoading">
+          <input type="password" id="password" name="password" [(ngModel)]="password" [placeholder]="i18n.t('login.passwordPlaceholder')" required autocomplete="current-password" [disabled]="isLoading">
           <svg xmlns="http://www.w3.org/2000/svg" class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
         </div>
       </div>
 
       <button type="submit" class="btn-primary" [disabled]="isLoading">
-        <span *ngIf="!isLoading">{{ isRegistering ? 'Sign Up' : 'Sign In' }}</span>
-        <div *ngIf="isLoading" class="spinner"></div>
+        @if (!isLoading) {
+          <span>{{ isRegistering ? i18n.t('login.signUp') : i18n.t('login.signIn') }}</span>
+        } @else {
+          <div class="spinner"></div>
+        }
       </button>
     </form>
 
-
-
     <div class="auth-toggle">
-      <span>{{ isRegistering ? 'Already have an account?' : 'New to CENT?' }}</span>
+      <span>{{ isRegistering ? i18n.t('login.alreadyHaveAccount') : i18n.t('login.newToCent') }}</span>
       <button class="toggle-link" (click)="toggleMode()" [disabled]="isLoading">
-        {{ isRegistering ? 'Sign In' : 'Create an account' }}
+        {{ isRegistering ? i18n.t('login.signIn') : i18n.t('login.createAnAccount') }}
       </button>
     </div>
   </div>

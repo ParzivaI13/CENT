@@ -1,19 +1,21 @@
 import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Auth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from '@angular/fire/auth';
+import { I18nService } from '../../services/i18n.service';
+import { ThemeService } from '../../services/theme.service';
 
 @Component({
   selector: 'app-login',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './login.html',
   styleUrl: './login.css',
 })
 export class Login {
-  private auth = inject(Auth);
-  private router = inject(Router);
+  private readonly auth = inject(Auth);
+  private readonly router = inject(Router);
+  readonly i18n = inject(I18nService);
+  readonly themeService = inject(ThemeService);
 
   email = '';
   password = '';
@@ -21,9 +23,9 @@ export class Login {
   isLoading = false;
   errorMessage = '';
 
-  async onSubmit() {
+  async onSubmit(): Promise<void> {
     if (!this.email || !this.password) {
-      this.errorMessage = 'Please enter email and password.';
+      this.errorMessage = this.i18n.t('login.enterEmailAndPassword');
       return;
     }
 
@@ -44,29 +46,23 @@ export class Login {
     }
   }
 
-
-
-  toggleMode() {
+  toggleMode(): void {
     this.isRegistering = !this.isRegistering;
     this.errorMessage = '';
   }
 
   private getFriendlyErrorMessage(code: string): string {
-    switch (code) {
-      case 'auth/invalid-email':
-        return 'The email address is invalid.';
-      case 'auth/user-disabled':
-        return 'This user account has been disabled.';
-      case 'auth/user-not-found':
-      case 'auth/wrong-password':
-      case 'auth/invalid-credential':
-        return 'Invalid email or password.';
-      case 'auth/email-already-in-use':
-        return 'This email is already registered.';
-      case 'auth/weak-password':
-        return 'Password should be at least 6 characters.';
-      default:
-        return 'An unexpected error occurred. Please try again.';
-    }
+    const errorMap: Record<string, string> = {
+      'auth/invalid-email': 'login.error.invalidEmail',
+      'auth/user-disabled': 'login.error.userDisabled',
+      'auth/user-not-found': 'login.error.invalidCredential',
+      'auth/wrong-password': 'login.error.invalidCredential',
+      'auth/invalid-credential': 'login.error.invalidCredential',
+      'auth/email-already-in-use': 'login.error.emailInUse',
+      'auth/weak-password': 'login.error.weakPassword',
+    };
+
+    const key = errorMap[code] ?? 'login.error.generic';
+    return this.i18n.t(key);
   }
 }

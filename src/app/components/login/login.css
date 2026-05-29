@@ -1,15 +1,19 @@
-/* Sleek Futuristic CSS for CENT Login Screen */
+/* ═══════════════════════════════════════════════
+   CENT Login — Themed Styles
+   ═══════════════════════════════════════════════ */
+
 .login-container {
   min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
   position: relative;
-  background-color: #0b0f19;
-  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  background-color: var(--bg-base);
+  font-family: var(--font-primary);
   overflow: hidden;
   padding: 20px;
   box-sizing: border-box;
+  transition: background-color var(--transition-smooth);
 }
 
 /* Ambient Glowing Background Orbs */
@@ -34,7 +38,7 @@
 .orb-1 {
   width: 500px;
   height: 500px;
-  background: radial-gradient(circle, #3b82f6 0%, #1e40af 100%);
+  background: var(--orb-1);
   top: -10%;
   left: -10%;
   animation: float-slow 15s infinite alternate ease-in-out;
@@ -43,7 +47,7 @@
 .orb-2 {
   width: 600px;
   height: 600px;
-  background: radial-gradient(circle, #8b5cf6 0%, #4c1d95 100%);
+  background: var(--orb-2);
   bottom: -20%;
   right: -10%;
   animation: float-slow 18s infinite alternate-reverse ease-in-out;
@@ -64,18 +68,19 @@
   z-index: 10;
   width: 100%;
   max-width: 440px;
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
+  background: var(--bg-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-2xl);
   padding: 40px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  color: #f8fafc;
+  box-shadow: var(--glass-shadow-heavy);
+  color: var(--text-primary);
   box-sizing: border-box;
+  transition: background var(--transition-smooth), border-color var(--transition-smooth), box-shadow var(--transition-smooth);
 }
 
-/* Brand Section Styling */
+/* Brand Section */
 .brand-section {
   display: flex;
   flex-direction: column;
@@ -87,12 +92,12 @@
 .logo-box {
   width: 56px;
   height: 56px;
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  border-radius: 16px;
+  background: var(--gradient-brand);
+  border-radius: var(--radius-lg);
   display: flex;
   justify-content: center;
   align-items: center;
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 8px 24px var(--accent-blue-shadow);
   margin-bottom: 12px;
 }
 
@@ -107,14 +112,14 @@
   font-weight: 800;
   margin: 0;
   letter-spacing: 2px;
-  background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+  background: var(--gradient-text);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .brand-tagline {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-muted);
   margin: 4px 0 0 0;
   font-weight: 500;
 }
@@ -125,16 +130,16 @@
   font-weight: 700;
   margin: 0 0 20px 0;
   text-align: center;
-  color: #f1f5f9;
+  color: var(--text-secondary);
 }
 
 /* Errors */
 .error-banner {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-text);
   padding: 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   font-size: 13px;
   display: flex;
   align-items: center;
@@ -162,7 +167,7 @@
 .input-group label {
   font-size: 12px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -176,23 +181,24 @@
 .input-wrapper input {
   width: 100%;
   padding: 14px 16px 14px 44px;
-  background: rgba(15, 23, 42, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  color: #ffffff;
+  background: var(--bg-input);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
   font-size: 15px;
-  transition: all 0.3s ease;
+  font-family: var(--font-primary);
+  transition: all var(--transition-smooth);
   box-sizing: border-box;
 }
 
 .input-wrapper input::placeholder {
-  color: #475569;
+  color: var(--text-faint);
 }
 
 .input-wrapper input:focus {
   outline: none;
-  border-color: #3b82f6;
-  background: rgba(15, 23, 42, 0.6);
+  border-color: var(--accent-blue);
+  background: var(--bg-input-focus);
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
 }
 
@@ -201,37 +207,38 @@
   left: 14px;
   width: 18px;
   height: 18px;
-  color: #475569;
+  color: var(--text-faint);
   pointer-events: none;
-  transition: color 0.3s ease;
+  transition: color var(--transition-smooth);
 }
 
 .input-wrapper input:focus + .field-icon {
-  color: #3b82f6;
+  color: var(--accent-blue);
 }
 
 /* Buttons */
 .btn-primary {
   width: 100%;
   padding: 14px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--gradient-cta);
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   color: #ffffff;
   font-size: 15px;
   font-weight: 700;
+  font-family: var(--font-primary);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--transition-smooth);
   display: flex;
   justify-content: center;
   align-items: center;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 4px 12px var(--accent-blue-shadow);
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
-  background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+  box-shadow: 0 6px 20px var(--accent-blue-glow);
+  background: var(--gradient-cta-hover);
 }
 
 .btn-primary:active:not(:disabled) {
@@ -243,63 +250,6 @@
   cursor: not-allowed;
 }
 
-/* Dividers */
-.divider {
-  display: flex;
-  align-items: center;
-  text-align: center;
-  margin: 20px 0;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.divider::before,
-.divider::after {
-  content: '';
-  flex: 1;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.divider span {
-  padding: 0 10px;
-}
-
-/* Secondary Button */
-.btn-secondary {
-  width: 100%;
-  padding: 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  color: #f1f5f9;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.15);
-}
-
-.btn-secondary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-icon {
-  width: 16px;
-  height: 16px;
-}
-
 /* Footer Switching Links */
 .auth-toggle {
   margin-top: 24px;
@@ -307,21 +257,22 @@
   justify-content: center;
   gap: 6px;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .toggle-link {
   background: none;
   border: none;
-  color: #3b82f6;
+  color: var(--accent-blue);
   font-weight: 700;
+  font-family: var(--font-primary);
   cursor: pointer;
   padding: 0;
   transition: color 0.2s ease;
 }
 
 .toggle-link:hover {
-  color: #60a5fa;
+  color: var(--accent-blue-hover);
   text-decoration: underline;
 }
 
@@ -339,4 +290,42 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ─── Settings Row (Theme + Language) ────────── */
+.login-settings-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.btn-setting {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-primary);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.btn-setting:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-medium);
+  color: var(--text-primary);
+}
+
+.btn-setting .setting-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }

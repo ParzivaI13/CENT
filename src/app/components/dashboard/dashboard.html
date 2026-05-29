@@ -6,7 +6,8 @@
       [activeTrailer]="activeTrailer"
       [userId]="userId"
       (palletSelected)="onPalletSelected($event)"
-      (edgeHoverRotate)="onEdgeHoverRotate($event)">
+      (edgeHoverRotate)="onEdgeHoverRotate($event)"
+      (spawnBlocked)="onSpawnBlocked($event)">
     </app-three-canvas>
   </main>
 
@@ -21,14 +22,14 @@
             <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
           </svg>
         </div>
-        <span class="brand-name-text">CENT</span>
+        <span class="brand-name-text">{{ i18n.t('common.appName') }}</span>
       </div>
 
       <!-- Center Operational Mode Controls -->
       <div class="mode-control-row">
         <!-- 2D / 3D Mode Toggle Switch -->
         <button class="btn-mode-toggle" [class.mode-3d]="activeMode === '3d'" (click)="toggleActiveMode()">
-          <span class="mode-label">{{ activeMode === '2d' ? '2D Top' : '3D Orbit' }}</span>
+          <span class="mode-label">{{ activeMode === '2d' ? i18n.t('dashboard.mode2d') : i18n.t('dashboard.mode3d') }}</span>
           <div class="indicator-dot"></div>
         </button>
 
@@ -38,7 +39,7 @@
         <div class="dropdown-trigger-wrapper">
           <button class="btn-drawer-trigger" [class.active]="showTrailersDropdown" (click)="toggleTrailersDropdown(); $event.stopPropagation()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="trigger-icon"><rect x="1" y="3" width="15" height="13" rx="2" ry="2"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon></svg>
-            <span>Trailers</span>
+            <span>{{ i18n.t('dashboard.trailers') }}</span>
             <span class="active-trailer-badge">{{ activeTrailer.length }}m</span>
           </button>
         </div>
@@ -46,22 +47,38 @@
         <div class="dropdown-trigger-wrapper">
           <button class="btn-drawer-trigger" [class.active]="showCargoDropdown" (click)="toggleCargoDropdown(); $event.stopPropagation()">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="trigger-icon"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
-            <span>Pallets</span>
+            <span>{{ i18n.t('dashboard.pallets') }}</span>
           </button>
         </div>
 
         <div class="divider-vertical"></div>
 
         <!-- Clear All button -->
-        <button class="btn-header-action btn-clear-all" (click)="clearAllPallets()" title="Clear all cargo">
+        <button class="btn-header-action btn-clear-all" (click)="clearAllPallets()" [title]="i18n.t('dashboard.clearAll')">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="header-act-icon"><path d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"></path></svg>
         </button>
       </div>
 
       <!-- Right User Actions -->
       <div class="header-user-badge">
-        <span class="user-email-tag" title="{{ userEmail }}">{{ userEmail }}</span>
-        <button class="btn-floating-logout" (click)="logout()" title="Sign Out">
+        <!-- Theme toggle -->
+        <button class="btn-header-setting" (click)="themeService.toggleTheme()" [title]="i18n.t(themeService.theme() === 'dark' ? 'theme.light' : 'theme.dark')">
+          @if (themeService.theme() === 'dark') {
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="header-setting-icon"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+          } @else {
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="header-setting-icon"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          }
+          <span>{{ i18n.t(themeService.theme() === 'dark' ? 'theme.dark' : 'theme.light') }}</span>
+        </button>
+
+        <!-- Language toggle -->
+        <button class="btn-header-setting" (click)="i18n.toggleLang()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="header-setting-icon"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+          <span>{{ i18n.t('lang.' + i18n.lang()) }}</span>
+        </button>
+
+        <span class="user-email-tag" [title]="userEmail">{{ userEmail }}</span>
+        <button class="btn-floating-logout" (click)="logout()" [title]="i18n.t('dashboard.signOut')">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="logout-icon">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
             <polyline points="16 17 21 12 16 7"></polyline>
@@ -78,27 +95,28 @@
              [class.card-active]="activeTrailer.id === 'default'" 
              (click)="selectDefaultTrailer()">
           <div class="preset-card-body">
-            <span class="preset-name">Default Trailer</span>
+            <span class="preset-name">{{ i18n.t('dashboard.defaultTrailer') }}</span>
             <span class="preset-dims">12.0m × 2.5m × 2.7m</span>
           </div>
         </div>
 
         <!-- Saved Trailers -->
-        <div class="horizontal-preset-item-card" 
-             *ngFor="let t of trailers"
-             [class.card-active]="activeTrailer.id === t.id"
-             (click)="selectTrailer(t)">
-          <div class="preset-card-body">
-            <span class="preset-name">{{ t.name }}</span>
-            <span class="preset-dims">{{ t.length }}m × {{ t.width }}m × {{ t.height }}m</span>
+        @for (t of trailers; track t.id) {
+          <div class="horizontal-preset-item-card" 
+               [class.card-active]="activeTrailer.id === t.id"
+               (click)="selectTrailer(t)">
+            <div class="preset-card-body">
+              <span class="preset-name">{{ t.name }}</span>
+              <span class="preset-dims">{{ t.length }}m × {{ t.width }}m × {{ t.height }}m</span>
+            </div>
+            <button class="btn-preset-delete" (click)="removeTrailer(t.id, $event)">✕</button>
           </div>
-          <button class="btn-preset-delete" (click)="removeTrailer(t.id, $event)">✕</button>
-        </div>
+        }
 
         <!-- Add New Trailer Button Card -->
         <div class="horizontal-preset-item-card btn-add-preset-card" (click)="openAddTrailerModal()">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="add-plus-icon"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          <span class="add-text">New Trailer</span>
+          <span class="add-text">{{ i18n.t('dashboard.newTrailer') }}</span>
         </div>
       </div>
     </div>
@@ -107,24 +125,25 @@
     <div class="horizontal-dropdown-panel pallets-dropdown" [class.show]="showCargoDropdown" (click)="$event.stopPropagation()">
       <div class="dropdown-inner-scroll">
         <!-- Saved Pallet profiles — click to spawn -->
-        <div class="horizontal-preset-item-card pallet-spawn-card" 
-             *ngFor="let c of cargoTypes"
-             (click)="spawnFromPreset(c)">
-          <div class="preset-indicator-color-bar" [style.background-color]="c.color"></div>
-          <div class="preset-card-body" style="padding-left: 10px;">
-            <span class="preset-name">
-              {{ c.name }}
-              <span class="badge-tag-stackable" [class.stacked]="c.stackable">{{ c.stackable ? 'STACK' : 'NO' }}</span>
-            </span>
-            <span class="preset-dims">{{ c.width }}m × {{ c.length }}m × {{ c.height }}m</span>
+        @for (c of cargoTypes; track c.id) {
+          <div class="horizontal-preset-item-card pallet-spawn-card" 
+               (click)="spawnFromPreset(c)">
+            <div class="preset-indicator-color-bar" [style.background-color]="c.color"></div>
+            <div class="preset-card-body" style="padding-left: 10px;">
+              <span class="preset-name">
+                {{ c.name }}
+                <span class="badge-tag-stackable" [class.stacked]="c.stackable">{{ c.stackable ? i18n.t('dashboard.stack') : i18n.t('common.no') }}</span>
+              </span>
+              <span class="preset-dims">{{ c.width }}m × {{ c.length }}m × {{ c.height }}m</span>
+            </div>
+            <button class="btn-preset-delete" (click)="removeCargo(c.id, $event)">✕</button>
           </div>
-          <button class="btn-preset-delete" (click)="removeCargo(c.id, $event)">✕</button>
-        </div>
+        }
 
         <!-- Add New Pallet Button Card -->
         <div class="horizontal-preset-item-card btn-add-preset-card" (click)="openAddCargoModal()">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="add-plus-icon"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          <span class="add-text">New Pallet</span>
+          <span class="add-text">{{ i18n.t('dashboard.newPallet') }}</span>
         </div>
       </div>
     </div>
@@ -133,23 +152,24 @@
     <div class="floating-action-bar" [class.show]="selectedPalletId !== null">
       <button class="fab-btn fab-rotate" (click)="rotateSelectedPallet()" title="Rotate 90°">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="fab-icon"><path d="M21.5 2v6h-6"></path><path d="M21.34 15.57a10 10 0 1 1-.57-8.38"></path></svg>
-        <span>Rotate</span>
+        <span>{{ i18n.t('dashboard.rotate') }}</span>
       </button>
       <div class="fab-divider"></div>
-      <button class="fab-btn fab-delete" (click)="deleteSelectedPallet()" title="Delete pallet">
+      <button class="fab-btn fab-delete" (click)="deleteSelectedPallet()" [title]="i18n.t('common.delete')">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="fab-icon"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-        <span>Delete</span>
+        <span>{{ i18n.t('common.delete') }}</span>
       </button>
     </div>
 
     <!-- Edge-Hover Rotate Button (absolute positioned via JS coords) -->
-    <button class="edge-rotate-btn" 
-            *ngIf="edgeRotatePos" 
-            [style.left.px]="edgeRotatePos.x" 
-            [style.top.px]="edgeRotatePos.y"
-            (click)="edgeRotate()">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="edge-rotate-icon"><path d="M21.5 2v6h-6"></path><path d="M21.34 15.57a10 10 0 1 1-.57-8.38"></path></svg>
-    </button>
+    @if (edgeRotatePos) {
+      <button class="edge-rotate-btn" 
+              [style.left.px]="edgeRotatePos.x" 
+              [style.top.px]="edgeRotatePos.y"
+              (click)="edgeRotate()">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="edge-rotate-icon"><path d="M21.5 2v6h-6"></path><path d="M21.34 15.57a10 10 0 1 1-.57-8.38"></path></svg>
+      </button>
+    }
 
     <!-- Auto-Loadout FAB (bottom-right circular button) -->
     <button class="btn-auto-load-fab" (click)="openAutoLoadModal()" title="Auto Load">
@@ -161,148 +181,175 @@
     </button>
 
     <!-- Auto-Loadout Modal -->
-    <div class="center-dialog-backdrop" *ngIf="showAutoLoadModal" (click)="closeAutoLoadModal()">
-      <div class="center-dialog-card auto-load-dialog" (click)="$event.stopPropagation()">
-        <div class="dialog-header">
-          <h4>Auto Loadout</h4>
-          <button class="btn-close-dialog" (click)="closeAutoLoadModal()">✕</button>
-        </div>
-        <div class="dialog-body">
-          <p class="auto-load-subtitle">Select pallet types and set their quantities. The solver will automatically pack them into the trailer.</p>
-
-          <!-- No presets message -->
-          <div class="auto-load-empty" *ngIf="cargoTypes.length === 0">
-            <span>No pallet presets saved yet. Create some first!</span>
+    @if (showAutoLoadModal) {
+      <div class="center-dialog-backdrop" (click)="closeAutoLoadModal()">
+        <div class="center-dialog-card auto-load-dialog" (click)="$event.stopPropagation()">
+          <div class="dialog-header">
+            <h4>{{ i18n.t('dashboard.modal.autoLoadout') }}</h4>
+            <button class="btn-close-dialog" (click)="closeAutoLoadModal()">✕</button>
           </div>
+          <div class="dialog-body">
+            <p class="auto-load-subtitle">{{ i18n.t('dashboard.modal.autoLoadSubtitle') }}</p>
 
-          <!-- Pallet quantity list -->
-          <div class="auto-load-list" *ngIf="cargoTypes.length > 0">
-            <div class="auto-load-item" *ngFor="let item of autoLoadItems">
-              <div class="auto-load-item-color" [style.background-color]="item.preset.color"></div>
-              <div class="auto-load-item-info">
-                <span class="auto-load-item-name">
-                  {{ item.preset.name }}
-                  <span class="badge-tag-stackable" [class.stacked]="item.preset.stackable">{{ item.preset.stackable ? 'STACK' : 'NO' }}</span>
-                </span>
-                <span class="auto-load-item-dims">{{ item.preset.width }}m × {{ item.preset.length }}m × {{ item.preset.height }}m</span>
+            @if (cargoTypes.length === 0) {
+              <div class="auto-load-empty">
+                <span>{{ i18n.t('dashboard.modal.noPresets') }}</span>
               </div>
-              <div class="qty-stepper">
-                <button class="qty-btn" (click)="decrementQty(item)" [disabled]="item.quantity <= 0">−</button>
-                <span class="qty-value">{{ item.quantity }}</span>
-                <button class="qty-btn" (click)="incrementQty(item)">+</button>
+            }
+
+            @if (cargoTypes.length > 0) {
+              <div class="auto-load-list">
+                @for (item of autoLoadItems; track item.preset.id) {
+                  <div class="auto-load-item">
+                    <div class="auto-load-item-color" [style.background-color]="item.preset.color"></div>
+                    <div class="auto-load-item-info">
+                      <span class="auto-load-item-name">
+                        {{ item.preset.name }}
+                        <span class="badge-tag-stackable" [class.stacked]="item.preset.stackable">{{ item.preset.stackable ? i18n.t('dashboard.stack') : i18n.t('common.no') }}</span>
+                      </span>
+                      <span class="auto-load-item-dims">{{ item.preset.width }}m × {{ item.preset.length }}m × {{ item.preset.height }}m</span>
+                    </div>
+                    <div class="qty-stepper">
+                      <button class="qty-btn" (click)="decrementQty(item)" [disabled]="item.quantity <= 0">−</button>
+                      <span class="qty-value">{{ item.quantity }}</span>
+                      <button class="qty-btn" (click)="incrementQty(item)">+</button>
+                    </div>
+                  </div>
+                }
               </div>
-            </div>
-          </div>
+            }
 
-          <!-- Result feedback -->
-          <div class="auto-load-result" *ngIf="autoLoadResult">
-            <span *ngIf="autoLoadResult.placed === autoLoadResult.total" class="result-success">✓ All {{ autoLoadResult.placed }} pallets placed successfully!</span>
-            <span *ngIf="autoLoadResult.placed < autoLoadResult.total" class="result-partial">⚠ {{ autoLoadResult.placed }} of {{ autoLoadResult.total }} pallets placed. {{ autoLoadResult.total - autoLoadResult.placed }} did not fit.</span>
-          </div>
+            @if (autoLoadResult) {
+              <div class="auto-load-result">
+                @if (autoLoadResult.placed === autoLoadResult.total) {
+                  <span class="result-success">{{ getAutoLoadResultText() }}</span>
+                } @else {
+                  <span class="result-partial">{{ getAutoLoadResultText() }}</span>
+                }
+              </div>
+            }
 
-          <div class="auto-load-actions" *ngIf="!autoLoadResult">
-            <button class="btn-dialog-cancel" (click)="closeAutoLoadModal()">Cancel</button>
-            <button class="btn-dialog-submit btn-solve" 
-                    (click)="executeAutoLoad()" 
-                    [disabled]="getTotalAutoLoadQty() === 0">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="solve-icon"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
-              Solve &amp; Load
-            </button>
-          </div>
-          <div class="auto-load-actions" *ngIf="autoLoadResult">
-            <button class="btn-dialog-submit" (click)="closeAutoLoadModal()">Close</button>
+            @if (!autoLoadResult) {
+              <div class="auto-load-actions">
+                <button class="btn-dialog-cancel" (click)="closeAutoLoadModal()">{{ i18n.t('common.cancel') }}</button>
+                <button class="btn-dialog-submit btn-solve" 
+                        (click)="executeAutoLoad()" 
+                        [disabled]="getTotalAutoLoadQty() === 0">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="solve-icon"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+                  {{ i18n.t('dashboard.modal.solveAndLoad') }}
+                </button>
+              </div>
+            } @else {
+              <div class="auto-load-actions">
+                <button class="btn-dialog-submit" (click)="closeAutoLoadModal()">{{ i18n.t('common.close') }}</button>
+              </div>
+            }
           </div>
         </div>
       </div>
-    </div>
-
+    }
 
     <!-- Centered Glassmorphic Modal popup: Add Trailer -->
-    <div class="center-dialog-backdrop" *ngIf="showAddTrailerModal" (click)="closeAddTrailerModal()">
-      <div class="center-dialog-card" (click)="$event.stopPropagation()">
-        <div class="dialog-header">
-          <h4>Create Trailer Profile</h4>
-          <button class="btn-close-dialog" (click)="closeAddTrailerModal()">✕</button>
-        </div>
-        <div class="dialog-body">
-          <form (ngSubmit)="addTrailer()" #tForm="ngForm" class="dialog-preset-form">
-            <div class="form-group-item">
-              <label for="tName">Profile Label</label>
-              <input type="text" id="tName" name="tName" [(ngModel)]="trailerName" placeholder="e.g. Heavy Duty Flatbed" required>
-            </div>
-            
-            <div class="form-grid-dimensions">
+    @if (showAddTrailerModal) {
+      <div class="center-dialog-backdrop" (click)="closeAddTrailerModal()">
+        <div class="center-dialog-card" (click)="$event.stopPropagation()">
+          <div class="dialog-header">
+            <h4>{{ i18n.t('dashboard.modal.createTrailer') }}</h4>
+            <button class="btn-close-dialog" (click)="closeAddTrailerModal()">✕</button>
+          </div>
+          <div class="dialog-body">
+            <form (ngSubmit)="addTrailer()" #tForm="ngForm" class="dialog-preset-form">
               <div class="form-group-item">
-                <label for="tL">Length (m)</label>
-                <input type="number" id="tL" name="tL" [(ngModel)]="newTrailerL" step="0.1" min="1" max="25" required>
+                <label for="tName">{{ i18n.t('dashboard.modal.profileLabel') }}</label>
+                <input type="text" id="tName" name="tName" [(ngModel)]="trailerName" [placeholder]="i18n.t('dashboard.modal.profilePlaceholder')" required>
               </div>
-              <div class="form-group-item">
-                <label for="tW">Width (m)</label>
-                <input type="number" id="tW" name="tW" [(ngModel)]="newTrailerW" step="0.1" min="1" max="5" required>
-              </div>
-              <div class="form-group-item">
-                <label for="tH">Height (m)</label>
-                <input type="number" id="tH" name="tH" [(ngModel)]="newTrailerH" step="0.1" min="1" max="5" required>
-              </div>
-            </div>
-
-            <button type="submit" class="btn-dialog-submit" [disabled]="!tForm.form.valid">Save Trailer Profile</button>
-          </form>
-        </div>
-      </div>
-    </div>
-
-    <!-- Centered Glassmorphic Modal popup: Add Pallet -->
-    <div class="center-dialog-backdrop" *ngIf="showAddCargoModal" (click)="closeAddCargoModal()">
-      <div class="center-dialog-card" (click)="$event.stopPropagation()">
-        <div class="dialog-header">
-          <h4>Create Pallet Type</h4>
-          <button class="btn-close-dialog" (click)="closeAddCargoModal()">✕</button>
-        </div>
-        <div class="dialog-body">
-          <form (ngSubmit)="addCargo()" #cForm="ngForm" class="dialog-preset-form">
-            <div class="form-group-item">
-              <label for="cName">Pallet / Cargo Label</label>
-              <input type="text" id="cName" name="cName" [(ngModel)]="cargoName" placeholder="e.g. Standard Euro-Box" required>
-            </div>
-            
-            <div class="form-grid-dimensions">
-              <div class="form-group-item">
-                <label for="cL">Length (m)</label>
-                <input type="number" id="cL" name="cL" [(ngModel)]="newCargoL" step="0.1" min="0.1" max="10" required>
-              </div>
-              <div class="form-group-item">
-                <label for="cW">Width (m)</label>
-                <input type="number" id="cW" name="cW" [(ngModel)]="newCargoW" step="0.1" min="0.1" max="10" required>
-              </div>
-              <div class="form-group-item">
-                <label for="cH">Height (m)</label>
-                <input type="number" id="cH" name="cH" [(ngModel)]="newCargoH" step="0.1" min="0.1" max="10" required>
-              </div>
-            </div>
-
-            <div class="form-grid-secondary">
-              <div class="form-group-item">
-                <label>Mesh Color</label>
-                <div class="modal-color-picker-row">
-                  <input type="color" name="cCol" [(ngModel)]="newCargoColor">
-                  <span class="hex-badge-text">{{ newCargoColor.toUpperCase() }}</span>
+              
+              <div class="form-grid-dimensions">
+                <div class="form-group-item">
+                  <label for="tL">{{ i18n.t('dashboard.modal.length') }}</label>
+                  <input type="number" id="tL" name="tL" [(ngModel)]="newTrailerL" step="0.1" min="1" max="25" required>
+                </div>
+                <div class="form-group-item">
+                  <label for="tW">{{ i18n.t('dashboard.modal.width') }}</label>
+                  <input type="number" id="tW" name="tW" [(ngModel)]="newTrailerW" step="0.1" min="1" max="5" required>
+                </div>
+                <div class="form-group-item">
+                  <label for="tH">{{ i18n.t('dashboard.modal.height') }}</label>
+                  <input type="number" id="tH" name="tH" [(ngModel)]="newTrailerH" step="0.1" min="1" max="5" required>
                 </div>
               </div>
-              <div class="form-group-item-checkbox">
-                <label class="modal-checkbox-container">
-                  <input type="checkbox" name="cStack" [(ngModel)]="cargoStackable">
-                  <span class="custom-checkbox-indicator"></span>
-                  <span class="checkbox-label-text">Stackable (Allows cargo on top)</span>
-                </label>
-              </div>
-            </div>
 
-            <button type="submit" class="btn-dialog-submit" [disabled]="!cForm.form.valid">Save Pallet Preset</button>
-          </form>
+              <button type="submit" class="btn-dialog-submit" [disabled]="!tForm.form.valid">{{ i18n.t('dashboard.modal.saveTrailer') }}</button>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
+    }
+
+    <!-- Centered Glassmorphic Modal popup: Add Pallet -->
+    @if (showAddCargoModal) {
+      <div class="center-dialog-backdrop" (click)="closeAddCargoModal()">
+        <div class="center-dialog-card" (click)="$event.stopPropagation()">
+          <div class="dialog-header">
+            <h4>{{ i18n.t('dashboard.modal.createPallet') }}</h4>
+            <button class="btn-close-dialog" (click)="closeAddCargoModal()">✕</button>
+          </div>
+          <div class="dialog-body">
+            <form (ngSubmit)="addCargo()" #cForm="ngForm" class="dialog-preset-form">
+              <div class="form-group-item">
+                <label for="cName">{{ i18n.t('dashboard.modal.palletLabel') }}</label>
+                <input type="text" id="cName" name="cName" [(ngModel)]="cargoName" [placeholder]="i18n.t('dashboard.modal.palletPlaceholder')" required>
+              </div>
+              
+              <div class="form-grid-dimensions">
+                <div class="form-group-item">
+                  <label for="cL">{{ i18n.t('dashboard.modal.length') }}</label>
+                  <input type="number" id="cL" name="cL" [(ngModel)]="newCargoL" step="0.1" min="0.1" max="10" required>
+                </div>
+                <div class="form-group-item">
+                  <label for="cW">{{ i18n.t('dashboard.modal.width') }}</label>
+                  <input type="number" id="cW" name="cW" [(ngModel)]="newCargoW" step="0.1" min="0.1" max="10" required>
+                </div>
+                <div class="form-group-item">
+                  <label for="cH">{{ i18n.t('dashboard.modal.height') }}</label>
+                  <input type="number" id="cH" name="cH" [(ngModel)]="newCargoH" step="0.1" min="0.1" max="10" required>
+                </div>
+              </div>
+
+              <div class="form-grid-secondary">
+                <div class="form-group-item">
+                  <label>{{ i18n.t('dashboard.modal.meshColor') }}</label>
+                  <div class="modal-color-picker-row">
+                    <input type="color" name="cCol" [(ngModel)]="newCargoColor">
+                    <span class="hex-badge-text">{{ newCargoColor.toUpperCase() }}</span>
+                  </div>
+                </div>
+                <div class="form-group-item-checkbox">
+                  <label class="modal-checkbox-container">
+                    <input type="checkbox" name="cStack" [(ngModel)]="cargoStackable">
+                    <span class="custom-checkbox-indicator"></span>
+                    <span class="checkbox-label-text">{{ i18n.t('dashboard.modal.stackable') }}</span>
+                  </label>
+                </div>
+              </div>
+
+              <button type="submit" class="btn-dialog-submit" [disabled]="!cForm.form.valid">{{ i18n.t('dashboard.modal.savePallet') }}</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    }
 
   </div>
+
+  <!-- Toast Notifications -->
+  @if (toasts.length > 0) {
+    <div class="toast-container">
+      @for (toast of toasts; track toast.id) {
+        <div class="toast" [class]="'toast toast-' + toast.type" [class.toast-out]="toast.removing" (click)="dismissToast(toast.id)">
+          {{ toast.message }}
+        </div>
+      }
+    </div>
+  }
 </div>

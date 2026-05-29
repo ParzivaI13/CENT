@@ -1,11 +1,12 @@
 import {
-  Component, ElementRef, OnInit, OnDestroy, ViewChild, AfterViewInit,
-  Input, Output, EventEmitter, OnChanges, SimpleChanges
+  Component, ElementRef, OnDestroy, ViewChild, AfterViewInit,
+  Input, Output, EventEmitter, OnChanges, SimpleChanges, inject, effect
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CargoPreset, TrailerPreset } from '../../services/storage.service';
+import { ThemeService } from '../../services/theme.service';
+import { I18nService } from '../../services/i18n.service';
 
 interface PalletMeshBundle {
   mesh: THREE.Mesh;
@@ -15,12 +16,11 @@ interface PalletMeshBundle {
 
 @Component({
   selector: 'app-three-canvas',
-  standalone: true,
-  imports: [CommonModule],
+  imports: [],
   templateUrl: './three-canvas.html',
   styleUrl: './three-canvas.css',
 })
-export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges {
+export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
   @ViewChild('rendererCanvas', { static: true }) rendererCanvas!: ElementRef<HTMLCanvasElement>;
 
   @Input() activeMode: '2d' | '3d' = '3d';
@@ -29,6 +29,10 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
 
   @Output() palletSelected = new EventEmitter<string | null>();
   @Output() edgeHoverRotate = new EventEmitter<{ x: number; y: number } | null>();
+  @Output() spawnBlocked = new EventEmitter<string>();
+
+  private readonly themeService = inject(ThemeService);
+  readonly i18n = inject(I18nService);
 
   selectedPalletId: string | null = null;
 
@@ -38,6 +42,7 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
   private perspCamera!: THREE.PerspectiveCamera;
   private orthoCamera!: THREE.OrthographicCamera;
   private orbitControls!: OrbitControls;
+  private animationFrameId: number | null = null;
 
   /** Returns whichever camera is currently active based on mode */
   private get camera(): THREE.PerspectiveCamera | THREE.OrthographicCamera {
@@ -49,9 +54,17 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
   private trailerOutline!: THREE.LineSegments;
   private cab!: THREE.Mesh;
   private floorMesh!: THREE.Mesh;
+  private gridHelper!: THREE.GridHelper;
 
   // Pallets
   private pallets: Map<string, PalletMeshBundle> = new Map();
+
+  constructor() {
+    effect(() => {
+      const isDark = this.themeService.theme() === 'dark';
+      this.applyThemeColors(isDark);
+    });
+  }
 
   // Dragging
   private raycaster = new THREE.Raycaster();
@@ -73,16 +86,20 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
   private readonly EDGE_COLOR_DEFAULT = 0x888888;
   private readonly EDGE_COLOR_SELECTED = 0x00d4ff;
 
-  ngOnInit() {}
+  // Bound event handlers (for proper cleanup)
+  private readonly boundOnResize = this.onWindowResize.bind(this);
+  private readonly boundOnPointerDown = this.onPointerDown.bind(this);
+  private readonly boundOnPointerMove = this.onPointerMove.bind(this);
+  private readonly boundOnPointerUp = this.onPointerUp.bind(this);
 
-  ngAfterViewInit() {
+  ngAfterViewInit(): void {
     this.initThree();
     this.createTrailerEnvironment();
     this.handleModeChange();
     this.animate();
   }
 
-  ngOnChanges(changes: SimpleChanges) {
+  ngOnChanges(changes: SimpleChanges): void {
     if (changes['activeMode'] && !changes['activeMode'].firstChange) {
       this.handleModeChange();
     }
@@ -91,17 +108,32 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     }
   }
 
-  ngOnDestroy() {
-    if (this.renderer) {
-      this.renderer.dispose();
+  ngOnDestroy(): void {
+    // Cancel animation loop
+    if (this.animationFrameId !== null) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = null;
     }
+
+    // Remove event listeners
+    window.removeEventListener('resize', this.boundOnResize);
+    const canvas = this.rendererCanvas?.nativeElement;
+    if (canvas) {
+      canvas.removeEventListener('pointerdown', this.boundOnPointerDown);
+      canvas.removeEventListener('pointermove', this.boundOnPointerMove);
+      canvas.removeEventListener('pointerup', this.boundOnPointerUp);
+    }
+
+    // Dispose Three.js resources
+    this.orbitControls?.dispose();
+    this.renderer?.dispose();
   }
 
   // ─── PUBLIC API ───────────────────────────────────────────
 
   /** Spawn a pallet from a saved preset (called by parent Dashboard) */
-  spawnPalletFromPreset(preset: CargoPreset) {
-    const id = 'pallet-' + Math.random().toString(36).substring(2, 9);
+  spawnPalletFromPreset(preset: CargoPreset): void {
+    const id = 'pallet-' + crypto.randomUUID().substring(0, 8);
 
     // Mesh
     const geo = new THREE.BoxGeometry(preset.width, preset.height, preset.length);
@@ -138,7 +170,7 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     mesh.position.set(0, startY, startZ);
 
     if (this.checkAABBOverlap(mesh) || this.isOutOfBounds(mesh)) {
-      alert(`Cannot spawn "${preset.name}". The spawn area is blocked or the pallet is too large.`);
+      this.spawnBlocked.emit(preset.name);
       mesh.geometry.dispose();
       (mesh.material as THREE.Material).dispose();
       return;
@@ -187,7 +219,7 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
   }
 
   /** Delete the currently selected pallet */
-  deleteSelected() {
+  deleteSelected(): void {
     if (!this.selectedPalletId) return;
     const bundle = this.pallets.get(this.selectedPalletId);
     if (bundle) {
@@ -206,7 +238,7 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
   }
 
   /** Clear all cargo */
-  resetLoad() {
+  resetLoad(): void {
     this.selectedPalletId = null;
     this.draggedBundle = null;
     this.isDragging = false;
@@ -226,18 +258,16 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     this.palletSelected.emit(null);
   }
 
-  /** Get count of spawned pallets */
-  getPalletCount(): number {
-    return this.pallets.size;
-  }
-
   // ─── INIT ─────────────────────────────────────────────────
 
-  private initThree() {
+  private initThree(): void {
     const canvas = this.rendererCanvas.nativeElement;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color('#0b0f19');
+
+    // The theme colors will be applied automatically by the effect once the scene is ready.
+    const isDark = this.themeService.theme() === 'dark';
+    this.applyThemeColors(isDark);
 
     // Perspective camera (3D mode)
     this.perspCamera = new THREE.PerspectiveCamera(50, canvas.clientWidth / canvas.clientHeight, 0.1, 100);
@@ -270,10 +300,7 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     dirLight.shadow.mapSize.height = 1024;
     this.scene.add(dirLight);
 
-    // Grid Floor
-    const gridHelper = new THREE.GridHelper(30, 30, '#1e293b', '#111827');
-    gridHelper.position.y = -0.01;
-    this.scene.add(gridHelper);
+    // Grid Floor is handled in applyThemeColors
 
     // Controls — start with perspective camera
     this.orbitControls = new OrbitControls(this.perspCamera, canvas);
@@ -281,19 +308,55 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     this.orbitControls.dampingFactor = 0.05;
     this.orbitControls.maxPolarAngle = Math.PI / 2 - 0.02;
 
-    window.addEventListener('resize', this.onWindowResize.bind(this));
+    window.addEventListener('resize', this.boundOnResize);
 
     // Pointer events
-    canvas.addEventListener('pointerdown', this.onPointerDown.bind(this));
-    canvas.addEventListener('pointermove', this.onPointerMove.bind(this));
-    canvas.addEventListener('pointerup', this.onPointerUp.bind(this));
+    canvas.addEventListener('pointerdown', this.boundOnPointerDown);
+    canvas.addEventListener('pointermove', this.boundOnPointerMove);
+    canvas.addEventListener('pointerup', this.boundOnPointerUp);
   }
 
-  private createTrailerEnvironment() {
+  private applyThemeColors(isDark: boolean): void {
+    if (!this.scene) return;
+
+    const bgColor = isDark ? '#0b0f19' : '#f0f2f5';
+    const gridMajor = isDark ? 0x1e293b : 0x94a3b8;
+    const gridMinor = isDark ? 0x111827 : 0xcbd5e1;
+    const cabColor = isDark ? 0x475569 : 0x94a3b8; // Lighter gray for cab
+    const floorColor = isDark ? 0x1a2332 : 0xe2e8f0;
+    const trailerColor = isDark ? 0x475569 : 0x94a3b8;
+
+    this.scene.background = new THREE.Color(bgColor);
+
+    if (this.cab?.material) {
+      (this.cab.material as THREE.MeshPhongMaterial).color.setHex(cabColor);
+    }
+    
+    if (this.floorMesh?.material) {
+      (this.floorMesh.material as THREE.MeshBasicMaterial).color.setHex(floorColor);
+    }
+
+    if (this.trailerBox?.material) {
+      (this.trailerBox.material as THREE.MeshPhongMaterial).color.setHex(trailerColor);
+    }
+
+    // Recreate grid to apply colors
+    if (this.gridHelper) {
+      this.scene.remove(this.gridHelper);
+      this.gridHelper.geometry.dispose();
+      (this.gridHelper.material as THREE.Material).dispose();
+    }
+    
+    this.gridHelper = new THREE.GridHelper(30, 30, gridMajor, gridMinor);
+    this.gridHelper.position.y = -0.01;
+    this.scene.add(this.gridHelper);
+  }
+
+  private createTrailerEnvironment(): void {
     const trailerGeo = new THREE.BoxGeometry(this.trailerW, this.trailerH, this.trailerL);
 
     const trailerMat = new THREE.MeshPhongMaterial({
-      color: 0x475569,
+      color: this.themeService.theme() === 'dark' ? 0x475569 : 0x94a3b8,
       transparent: true,
       opacity: 0.12,
       side: THREE.DoubleSide,
@@ -313,7 +376,7 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     // Floor plane for trailer (visible in 2D mode)
     const floorGeo = new THREE.PlaneGeometry(this.trailerW, this.trailerL);
     const floorMat = new THREE.MeshBasicMaterial({
-      color: 0x1a2332,
+      color: this.themeService.theme() === 'dark' ? 0x1a2332 : 0xe2e8f0,
       transparent: true,
       opacity: 0.3,
       side: THREE.DoubleSide,
@@ -326,7 +389,8 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     // Cabin
     const cabW = 2.0, cabH = 2.4, cabL = 2.0;
     const cabGeo = new THREE.BoxGeometry(cabW, cabH, cabL);
-    const cabMat = new THREE.MeshPhongMaterial({ color: 0x1e293b, flatShading: true });
+    const cabColor = this.themeService.theme() === 'dark' ? 0x475569 : 0x94a3b8;
+    const cabMat = new THREE.MeshPhongMaterial({ color: cabColor, flatShading: true });
     this.cab = new THREE.Mesh(cabGeo, cabMat);
     const cabCenterZ = -(this.trailerL / 2 + cabL / 2 + 0.5);
     this.cab.position.set(0, cabH / 2, cabCenterZ);
@@ -341,7 +405,7 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     this.orbitControls.update();
   }
 
-  private applyTrailerPreset() {
+  private applyTrailerPreset(): void {
     if (!this.trailerBox) return; // not yet initialized
 
     // Clear all pallets when switching trailers to avoid oversized cargo persisting
@@ -370,21 +434,18 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
   // ─── MODE ─────────────────────────────────────────────────
 
   /** Update orthographic frustum to fit the trailer with padding */
-  private updateOrthoFrustum() {
+  private updateOrthoFrustum(): void {
     const canvas = this.rendererCanvas.nativeElement;
     if (!canvas || canvas.clientWidth === 0) return;
 
     const aspect = canvas.clientWidth / canvas.clientHeight;
-    // Add padding so the full trailer + cab is visible
     const padW = 2.0;
-    const padL = 4.0; // extra for cab
+    const padL = 4.0;
     const viewW = this.trailerW + padW;
     const viewL = this.trailerL + padL;
 
-    // Pick the larger dimension scaled by aspect
     let frustumW: number, frustumH: number;
     if (viewL / viewW > aspect) {
-      // Trailer length is the limiting dimension
       frustumH = viewL;
       frustumW = frustumH * aspect;
     } else {
@@ -399,12 +460,11 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     this.orthoCamera.updateProjectionMatrix();
   }
 
-  private handleModeChange() {
+  private handleModeChange(): void {
     if (!this.orbitControls) return;
     const canvas = this.rendererCanvas.nativeElement;
 
     if (this.activeMode === '2d') {
-      // Switch controls to orthographic camera
       this.orbitControls.dispose();
       this.orthoCamera.position.set(0, 50, 0);
       this.orthoCamera.lookAt(0, 0, 0);
@@ -424,7 +484,6 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
         this.clampObjectToTrailer(bundle.mesh);
       });
     } else {
-      // Switch controls to perspective camera
       this.orbitControls.dispose();
       this.perspCamera.position.set(14, 8, 14);
 
@@ -440,13 +499,13 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
 
   // ─── ANIMATION ────────────────────────────────────────────
 
-  private animate() {
-    requestAnimationFrame(() => this.animate());
+  private animate(): void {
+    this.animationFrameId = requestAnimationFrame(() => this.animate());
     this.orbitControls.update();
     this.renderer.render(this.scene, this.camera);
   }
 
-  private onWindowResize() {
+  private onWindowResize(): void {
     const canvas = this.rendererCanvas.nativeElement;
     if (!canvas || canvas.clientWidth === 0) return;
 
@@ -461,7 +520,7 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
 
   // ─── SELECTION ────────────────────────────────────────────
 
-  private selectPalletById(id: string | null) {
+  private selectPalletById(id: string | null): void {
     // Deselect previous
     if (this.selectedPalletId) {
       const prev = this.pallets.get(this.selectedPalletId);
@@ -485,7 +544,7 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
 
   // ─── POINTER EVENTS ──────────────────────────────────────
 
-  private onPointerDown(event: PointerEvent) {
+  private onPointerDown(event: PointerEvent): void {
     const canvas = this.rendererCanvas.nativeElement;
     const rect = canvas.getBoundingClientRect();
 
@@ -529,7 +588,7 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     }
   }
 
-  private onPointerMove(event: PointerEvent) {
+  private onPointerMove(event: PointerEvent): void {
     const canvas = this.rendererCanvas.nativeElement;
     const rect = canvas.getBoundingClientRect();
 
@@ -545,7 +604,7 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
 
       // Edge-hover rotate check (only when pallet selected and hovering it)
       if (this.selectedPalletId) {
-        this.checkEdgeHoverRotate(event.clientX, event.clientY);
+        this.checkEdgeHoverRotate();
       }
       return;
     }
@@ -560,7 +619,6 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
       const prevX = mesh.position.x;
       const prevZ = mesh.position.z;
 
-      // Calculate clamped target positions FIRST
       const w = mesh.userData['width'] || 1.0;
       const l = mesh.userData['length'] || 1.2;
       const halfWidthLimit = this.trailerW / 2 - w / 2;
@@ -597,7 +655,7 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     this.edgeHoverRotate.emit(null);
   }
 
-  private onPointerUp(event: PointerEvent) {
+  private onPointerUp(event: PointerEvent): void {
     const canvas = this.rendererCanvas.nativeElement;
     const dist = Math.hypot(event.clientX - this.pointerDownPos.x, event.clientY - this.pointerDownPos.y);
     const elapsed = Date.now() - this.pointerDownTime;
@@ -607,7 +665,6 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
 
       if (dist < 5 && elapsed < 300) {
         // This was a click, not a drag — selection already happened in pointerDown
-        // Just restore position (no move)
         mesh.position.copy(this.previousPosition);
       } else {
         // Real drag — snap to grid
@@ -662,14 +719,14 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
   }
 
   /** Emit rotate button position for the currently selected pallet (for mobile tap) */
-  private emitRotateButtonForSelected() {
+  private emitRotateButtonForSelected(): void {
     if (!this.selectedPalletId) return;
     const bundle = this.pallets.get(this.selectedPalletId);
     if (!bundle) return;
     this.edgeHoverRotate.emit(this.getRotateButtonScreenPos(bundle.mesh));
   }
 
-  private checkEdgeHoverRotate(screenX: number, screenY: number) {
+  private checkEdgeHoverRotate(): void {
     if (!this.selectedPalletId) {
       this.edgeHoverRotate.emit(null);
       return;
@@ -739,7 +796,6 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     const tHW = this.trailerW / 2;
     const tHL = this.trailerL / 2;
 
-    // Use a small margin (0.05) to allow for floating point inaccuracies
     if (x - hw < -tHW - 0.05 || x + hw > tHW + 0.05) return true;
     if (z - hl < -tHL - 0.05 || z + hl > tHL + 0.05) return true;
     if (y - h / 2 < 0 - 0.05 || y + h / 2 > this.trailerH + 0.05) return true;
@@ -747,7 +803,7 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     return false;
   }
 
-  private applyDiscrete3DPhysicsStacking(dragged: THREE.Mesh, prevY: number) {
+  private applyDiscrete3DPhysicsStacking(dragged: THREE.Mesh, prevY: number): void {
     const draggedId = dragged.userData['id'];
     const draggedW = dragged.userData['width'] || 1.0;
     const draggedL = dragged.userData['length'] || 1.2;
@@ -795,7 +851,7 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     }
   }
 
-  private clampObjectToTrailer(mesh: THREE.Mesh) {
+  private clampObjectToTrailer(mesh: THREE.Mesh): void {
     const w = mesh.userData['width'] || 1.0;
     const h = mesh.userData['height'] || 1.6;
     const l = mesh.userData['length'] || 1.2;
@@ -831,17 +887,16 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
     const total = allPallets.length;
     let placed = 0;
 
-    // Track occupied positions as simple AABB list for fast overlap testing
+    // Track occupied positions as simple AABB list
     const occupied: { x: number; z: number; y: number; w: number; l: number; h: number; stackable: boolean }[] = [];
 
     const halfW = this.trailerW / 2;
     const halfL = this.trailerL / 2;
-    const step = 0.05; // scan step in meters
+    const step = 0.05;
 
     for (const preset of allPallets) {
       let didPlace = false;
 
-      // Try both orientations
       const orientations = [
         { w: preset.width, l: preset.length },
         { w: preset.length, l: preset.width },
@@ -854,13 +909,11 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
         const pl = orient.l;
         const ph = preset.height;
 
-        // Scan from back-left (−halfL, −halfW) to front-right
         for (let z = -halfL + pl / 2; z <= halfL - pl / 2 + step / 2; z += step) {
           if (didPlace) break;
           for (let x = -halfW + pw / 2; x <= halfW - pw / 2 + step / 2; x += step) {
-            const y = ph / 2; // on the floor
+            const y = ph / 2;
 
-            // Check overlap with all occupied
             let overlaps = false;
             for (const occ of occupied) {
               const xOv = Math.abs(x - occ.x) < (pw / 2 + occ.w / 2 - 0.02);
@@ -873,7 +926,6 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
             }
 
             if (!overlaps && y + ph / 2 <= this.trailerH + 0.01) {
-              // Place it!
               const isRotated = orient.w !== preset.width;
               this.spawnPalletAt(preset, x, y, z, isRotated);
               occupied.push({ x, z, y, w: pw, l: pl, h: ph, stackable: preset.stackable });
@@ -893,23 +945,19 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
           const pl = orient.l;
           const ph = preset.height;
 
-          // Try stacking on each stackable occupied pallet
           for (const base of occupied) {
             if (didPlace) break;
             if (!base.stackable) continue;
 
             const stackY = base.y + base.h / 2 + ph / 2;
-            if (stackY + ph / 2 > this.trailerH + 0.01) continue; // exceeds trailer height
+            if (stackY + ph / 2 > this.trailerH + 0.01) continue;
 
-            // Try placing on top of this base
             const x = base.x;
             const z = base.z;
 
-            // Check if fits within trailer width/length
             if (x - pw / 2 < -halfW - 0.01 || x + pw / 2 > halfW + 0.01) continue;
             if (z - pl / 2 < -halfL - 0.01 || z + pl / 2 > halfL + 0.01) continue;
 
-            // Check overlap with all other occupied
             let overlaps = false;
             for (const occ of occupied) {
               const xOv = Math.abs(x - occ.x) < (pw / 2 + occ.w / 2 - 0.02);
@@ -937,8 +985,8 @@ export class ThreeCanvas implements OnInit, OnDestroy, AfterViewInit, OnChanges 
   }
 
   /** Spawn a pallet at an exact position (used by auto-loader) */
-  private spawnPalletAt(preset: CargoPreset, x: number, y: number, z: number, rotated: boolean) {
-    const id = 'pallet-' + Math.random().toString(36).substring(2, 9);
+  private spawnPalletAt(preset: CargoPreset, x: number, y: number, z: number, rotated: boolean): void {
+    const id = 'pallet-' + crypto.randomUUID().substring(0, 8);
 
     const effectiveW = rotated ? preset.length : preset.width;
     const effectiveL = rotated ? preset.width : preset.length;

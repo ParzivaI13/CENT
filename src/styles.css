@@ -1,32 +1,315 @@
 /* Import elegant Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
 
-/* Global Reset */
+/* ═══════════════════════════════════════════════
+   CENT Design System — CSS Custom Properties
+   ═══════════════════════════════════════════════ */
+
+:root {
+  /* Typography */
+  --font-primary: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Transition defaults */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+  --transition-smooth: 0.3s ease;
+
+  /* Border radius tokens */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-pill: 30px;
+}
+
+/* ─── Dark Theme (Default) ──────────────────── */
+[data-theme="dark"] {
+  /* Backgrounds */
+  --bg-base: #0b0f19;
+  --bg-elevated: rgba(15, 23, 42, 0.78);
+  --bg-card: rgba(15, 23, 42, 0.65);
+  --bg-card-strong: rgba(15, 23, 42, 0.88);
+  --bg-input: rgba(15, 23, 42, 0.4);
+  --bg-input-focus: rgba(15, 23, 42, 0.6);
+  --bg-subtle: rgba(255, 255, 255, 0.03);
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-backdrop: rgba(7, 10, 19, 0.6);
+
+  /* Text */
+  --text-primary: #f8fafc;
+  --text-secondary: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --text-faint: #475569;
+
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --border-focus: rgba(255, 255, 255, 0.15);
+
+  /* Accent — Blue */
+  --accent-blue: #3b82f6;
+  --accent-blue-hover: #60a5fa;
+  --accent-blue-bg: rgba(59, 130, 246, 0.08);
+  --accent-blue-border: rgba(59, 130, 246, 0.2);
+  --accent-blue-shadow: rgba(59, 130, 246, 0.3);
+  --accent-blue-glow: rgba(37, 99, 235, 0.35);
+
+  /* Accent — Purple */
+  --accent-purple: #8b5cf6;
+  --accent-purple-hover: #a78bfa;
+  --accent-purple-bg: rgba(139, 92, 246, 0.08);
+  --accent-purple-border: rgba(139, 92, 246, 0.3);
+  --accent-purple-text: #c084fc;
+
+  /* Status — Error/Danger */
+  --danger-text: #fca5a5;
+  --danger-bg: rgba(239, 68, 68, 0.1);
+  --danger-border: rgba(239, 68, 68, 0.2);
+  --danger-bg-hover: rgba(239, 68, 68, 0.14);
+  --danger-border-hover: rgba(239, 68, 68, 0.3);
+
+  /* Status — Success */
+  --success-text: #a7f3d0;
+  --success-bg: rgba(16, 185, 129, 0.15);
+  --success-border: rgba(16, 185, 129, 0.25);
+
+  /* Status — Warning */
+  --warning-text: #fde68a;
+  --warning-bg: rgba(245, 158, 11, 0.08);
+  --warning-border: rgba(245, 158, 11, 0.2);
+
+  /* Glass effects */
+  --glass-blur: blur(20px) saturate(180%);
+  --glass-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.4);
+  --glass-shadow-heavy: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+
+  /* Gradients */
+  --gradient-brand: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  --gradient-cta: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  --gradient-cta-hover: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+  --gradient-text: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+
+  /* Orbs (login background) */
+  --orb-1: radial-gradient(circle, #3b82f6 0%, #1e40af 100%);
+  --orb-2: radial-gradient(circle, #8b5cf6 0%, #4c1d95 100%);
+
+  /* Three.js scene */
+  --scene-bg: #0b0f19;
+  --scene-grid-major: #1e293b;
+  --scene-grid-minor: #111827;
+  --scene-floor: #1a2332;
+
+  /* Scrollbar */
+  --scrollbar-track: #0f172a;
+  --scrollbar-thumb: #1e293b;
+  --scrollbar-thumb-hover: #334155;
+}
+
+/* ─── Light Theme ───────────────────────────── */
+[data-theme="light"] {
+  /* Backgrounds */
+  --bg-base: #f0f2f5;
+  --bg-elevated: rgba(255, 255, 255, 0.92);
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-card-strong: rgba(255, 255, 255, 0.95);
+  --bg-input: rgba(241, 245, 249, 0.8);
+  --bg-input-focus: rgba(241, 245, 249, 1);
+  --bg-subtle: rgba(0, 0, 0, 0.02);
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-backdrop: rgba(0, 0, 0, 0.3);
+
+  /* Text */
+  --text-primary: #0f172a;
+  --text-secondary: #1e293b;
+  --text-muted: #475569;
+  --text-dim: #64748b;
+  --text-faint: #94a3b8;
+
+  /* Borders */
+  --border-subtle: rgba(0, 0, 0, 0.06);
+  --border-light: rgba(0, 0, 0, 0.08);
+  --border-medium: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.12);
+  --border-focus: rgba(0, 0, 0, 0.15);
+
+  /* Accent — Blue */
+  --accent-blue: #2563eb;
+  --accent-blue-hover: #3b82f6;
+  --accent-blue-bg: rgba(37, 99, 235, 0.06);
+  --accent-blue-border: rgba(37, 99, 235, 0.2);
+  --accent-blue-shadow: rgba(37, 99, 235, 0.15);
+  --accent-blue-glow: rgba(37, 99, 235, 0.2);
+
+  /* Accent — Purple */
+  --accent-purple: #7c3aed;
+  --accent-purple-hover: #8b5cf6;
+  --accent-purple-bg: rgba(124, 58, 237, 0.06);
+  --accent-purple-border: rgba(124, 58, 237, 0.2);
+  --accent-purple-text: #7c3aed;
+
+  /* Status — Error/Danger */
+  --danger-text: #dc2626;
+  --danger-bg: rgba(220, 38, 38, 0.06);
+  --danger-border: rgba(220, 38, 38, 0.15);
+  --danger-bg-hover: rgba(220, 38, 38, 0.1);
+  --danger-border-hover: rgba(220, 38, 38, 0.25);
+
+  /* Status — Success */
+  --success-text: #059669;
+  --success-bg: rgba(5, 150, 105, 0.08);
+  --success-border: rgba(5, 150, 105, 0.2);
+
+  /* Status — Warning */
+  --warning-text: #d97706;
+  --warning-bg: rgba(217, 119, 6, 0.06);
+  --warning-border: rgba(217, 119, 6, 0.15);
+
+  /* Glass effects */
+  --glass-blur: blur(20px) saturate(120%);
+  --glass-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.1);
+  --glass-shadow-heavy: 0 20px 40px -12px rgba(0, 0, 0, 0.15);
+
+  /* Gradients */
+  --gradient-brand: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  --gradient-cta: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  --gradient-cta-hover: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+  --gradient-text: linear-gradient(135deg, #0f172a 0%, #475569 100%);
+
+  /* Orbs (login background) */
+  --orb-1: radial-gradient(circle, #93c5fd 0%, #bfdbfe 100%);
+  --orb-2: radial-gradient(circle, #c4b5fd 0%, #ddd6fe 100%);
+
+  /* Three.js scene — keep dark for contrast */
+  --scene-bg: #1a1f2e;
+  --scene-grid-major: #2d3548;
+  --scene-grid-minor: #1e2536;
+  --scene-floor: #252d3d;
+
+  /* Scrollbar */
+  --scrollbar-track: #e2e8f0;
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-thumb-hover: #94a3b8;
+}
+
+/* ═══════════════════════════════════════════════
+   Global Reset & Base Styles
+   ═══════════════════════════════════════════════ */
+
 html, body {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
-  background-color: #0b0f19;
-  font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-base);
+  font-family: var(--font-primary);
   overflow: hidden;
+  color: var(--text-primary);
+  transition: background-color var(--transition-smooth), color var(--transition-smooth);
 }
 
-/* Custom Scrollbar for Premium Dark Mode */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* ═══════════════════════════════════════════════
+   Toast Notification System
+   ═══════════════════════════════════════════════ */
+
+.toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-primary);
+  backdrop-filter: blur(16px);
+  box-shadow: var(--glass-shadow);
+  animation: toast-in 0.3s ease forwards;
+  max-width: 360px;
+}
+
+.toast.toast-error {
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+  color: var(--danger-text);
+}
+
+.toast.toast-success {
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  color: var(--success-text);
+}
+
+.toast.toast-warning {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  color: var(--warning-text);
+}
+
+.toast.toast-out {
+  animation: toast-out 0.25s ease forwards;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+}
+
+@media (max-width: 768px) {
+  .toast-container {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+  }
+
+  .toast {
+    max-width: 100%;
+  }
 }
