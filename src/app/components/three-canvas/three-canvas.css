@@ -1,0 +1,60 @@
+/* Fullscreen ThreeCanvas layout */
+.three-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Fullscreen WebGL canvas */
+.canvas-viewport {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+.webgl-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Instruction overlay */
+.viewport-instruction-overlay {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 30px;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  z-index: 5;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+
+.info-icon {
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+/* --- MOBILE --- */
+@media (max-width: 768px) {
+  .viewport-instruction-overlay {
+    display: none;
+  }
+}

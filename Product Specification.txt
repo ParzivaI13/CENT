@@ -1,0 +1,96 @@
+# Product Specification & Context Document: Cargo Efficient Navigator Tool (CENT)
+
+## 1. Project Overview
+**Cargo Efficient Navigator Tool** is a lightweight, high-performance cross-platform web application designed to help logistics managers, truck drivers, and warehouse workers optimize the placement of pallets and cargo inside truck trailers. The application utilizes a 3D viewport to allow both manual interactive adjustment and automated algorithmic optimization of cargo layouts.
+
+### Target Platforms
+* Desktop browsers (optimized for precise mouse-based 3D manipulation)
+* Mobile/Smartphone browsers (optimized for touch-based controls)
+
+### Development Environment
+* Developed using **Antigravity IDE** (a full IDE environment based on VS Code). This document serves as the core contextual anchor for the IDE's AI capabilities to assist in code generation, debugging, and architectural planning.
+
+---
+
+## 2. Core Feature Set & Scope
+
+### 3D Visualization & Interaction
+* **3D Viewport:** Renders the truck cab (reference point) and the trailer box using lightweight 3D primitives.
+* **Manual Manipulation:** Users can select, drag, move along X, Y, Z axes, and rotate (90-degree increments) cargo items smoothly.
+* **Physics & Constraints:** Basic collision bounding boxes to prevent pallets from clipping into each other or bleeding through the trailer walls. Support for **stacking** (placing pallets on top of each other) based on height limits.
+
+### Data Management & User Profiles
+* **Presets:** Users can create, edit, and save custom trailer dimensions (Length, Width, Height) and pallet types.
+* **Cloud Storage:** Remote saving of user data for seamless cross-device synchronization between PC and smartphone.
+
+### Monetization Model (Freemium Structure)
+* **Free Tier:**
+  * Full access to the 3D interactive manual canvas.
+  * Maximum of 2 saved trailer profiles.
+  * Maximum of 3 saved pallet/cargo dimension types.
+* **Pro Tier (Paid):**
+  * Unlimited saved trailer and cargo profiles.
+  * Access to the **3D Automatic Packing Optimization Algorithm**.
+
+---
+
+## 3. Technology Stack Architecture
+
+* **Frontend Framework:** `Angular` (TypeScript) for robust structural typing, modular architecture, and reliable state management.
+* **3D Graphics Engine:** `Three.js` (or `@angular-three/core`) utilizing WebGL for hardware-accelerated, high-FPS rendering of 3D primitive boxes.
+* **Backend Ecosystem:** `Firebase`
+  * **Firebase Authentication:** Email/password and anonymous sign-ins.
+  * **Cloud Firestore:** NoSQL database for real-time storage of user presets and trailer layouts.
+  * **Firebase Hosting:** Free, SSL-secured global CDN hosting.
+* **Core Algorithm Library:** Custom TypeScript implementation of a 3D Bin Packing heuristic or a lightweight open-source npm equivalent (e.g., modified `3d-bin-packing`).
+
+---
+
+## 4. Iterative Development Plan (Levels of Readiness)
+
+This phase-by-phase roadmap ensures a functional deployment within a tight multi-day timeline using Antigravity IDE.
+
+### Level 1: Foundation & Cloud Sync (Day 1)
+* **Goal:** Establish infrastructure, authentication, and deployment pipeline.
+* **Tasks:**
+  1. Initialize the Angular project structure inside Antigravity IDE.
+  2. Configure `firebase-tools` and initialize Firebase Auth, Firestore, and Hosting.
+  3. Build basic authentication views (Login/Register) and a dashboard shell.
+  4. Implement continuous deployment using Firebase Hosting (`firebase deploy`).
+* **Outcome:** A live, public secure URL where users can sign up and log into an empty dashboard.
+
+### Level 2: 3D Workspace & Interactive Canvas (Day 2)
+* **Goal:** Render the 3D trailer environment and handle manual item placement.
+* **Tasks:**
+  1. Integrate `Three.js` and set up the 3D Scene, Camera, and WebGLRenderer.
+  2. Add an elegant wireframe/semi-transparent 3D box representing the trailer, plus a simple primitive representing the truck cab.
+  3. Implement `OrbitControls` for camera movement (zoom, pan, rotate) tailored for both mouse clicks and touch gestures.
+  4. Build a system to spawn 3D Box primitives (pallets) on the trailer floor.
+  5. Implement a 3D dragging mechanism (using raycasting) constrained to 90-degree rotations and grid/boundary snapping.
+* **Outcome:** Users can manually spawn 3D pallets, move them around inside a 3D trailer, and stack them cleanly without clipping boundaries.
+
+### Level 3: Presets & Freemium Constraints (Day 3)
+* **Goal:** Enable saving profiles and enforce commercial tier gates.
+* **Tasks:**
+  1. Design Firestore database schemas for `/users/{userId}/trailers` and `/users/{userId}/cargo`.
+  2. Create Angular forms to let users input custom dimensions (L x W x H) and save them to Firestore.
+  3. Implement frontend guards and database rules that count user documents and intercept creation if they exceed Free Tier limits (2 trailers, 3 cargo types).
+* **Outcome:** Free users can save a couple of custom trucks and pallets, with data persisting across desktop and mobile devices.
+
+### Level 4: 3D Auto-Packing Heuristic & Pro Gating (Day 4)
+* **Goal:** Implement the automated layout optimizer and simulate payment access.
+* **Tasks:**
+  1. Implement a **3D Bin Packing Algorithm (3D-BPP)** heuristic in TypeScript.
+     * *Heuristic Strategy:* Largest Area First Fit (LAFF) or Deepest-First Layer Building.
+     * *Rules:* Sort items by volume/footprint, place from back-left-bottom corner of the trailer moving forward, verifying X/Y/Z boundary limits and stackability.
+  2. Create a "Run Auto-Layout" UI button gated behind a user role attribute check (`isPro === true`).
+  3. Set up a placeholder webhook or a manual Pro-activation switch in Firestore to mock successful payments.
+* **Outcome:** Clicking "Auto-Layout" instantly calculates and positions all selected items optimally in 3D space for Pro accounts.
+
+---
+
+## 5. Development Guidelines for Antigravity IDE AI
+When generating code for this codebase, strictly follow these structural rules:
+1. **Math Isolation:** Keep 3D packing algorithms and coordinate space calculations in pure TypeScript services, isolated from UI rendering lifecycles.
+2. **Responsive Canvas:** Ensure the Three.js canvas resizes dynamically when shifting between mobile portrait/landscape orientations and desktop screens.
+3. **Optimized Typing:** Define explicit interfaces for `Vector3D`, `CargoItem`, and `TrailerDimensions` to prevent any runtime boundary failures.
