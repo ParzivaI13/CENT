@@ -192,6 +192,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
 
     const { mesh } = bundle;
     const prevRotY = mesh.rotation.y;
+    const prevPos = mesh.position.clone();
     const prevW = mesh.userData['width'];
     const prevL = mesh.userData['length'];
 
@@ -205,13 +206,9 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     if (this.checkAABBOverlap(mesh) || this.isOutOfBounds(mesh)) {
       // Revert — no space
       mesh.rotation.y = prevRotY;
+      mesh.position.copy(prevPos);
       mesh.userData['width'] = prevW;
       mesh.userData['length'] = prevL;
-      const revertGeo = new THREE.BoxGeometry(prevW, mesh.userData['height'], prevL);
-      bundle.edges.geometry.dispose();
-      bundle.edges.geometry = new THREE.EdgesGeometry(revertGeo);
-      revertGeo.dispose();
-      this.clampObjectToTrailer(mesh);
       return false;
     }
 
