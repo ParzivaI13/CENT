@@ -98,7 +98,7 @@
 
     <!-- Pop-Down Horizontal Selector Dropdown: Trailers -->
     <div class="horizontal-dropdown-panel trailers-dropdown" [class.show]="showTrailersDropdown" (click)="$event.stopPropagation()">
-      <div class="dropdown-inner-scroll">
+      <div class="dropdown-inner-scroll" (wheel)="onHorizontalScroll($event)">
         <!-- Default Trailer Card -->
         <div class="horizontal-preset-item-card" 
              [class.card-active]="activeTrailer.id === 'default'" 
@@ -132,7 +132,7 @@
 
     <!-- Pop-Down Horizontal Selector Dropdown: Pallets -->
     <div class="horizontal-dropdown-panel pallets-dropdown" [class.show]="showCargoDropdown" (click)="$event.stopPropagation()">
-      <div class="dropdown-inner-scroll">
+      <div class="dropdown-inner-scroll" (wheel)="onHorizontalScroll($event)">
         <!-- Saved Pallet profiles — click to spawn -->
         @for (c of cargoTypes; track c.id) {
           <div class="horizontal-preset-item-card pallet-spawn-card" 

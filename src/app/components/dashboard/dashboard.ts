@@ -149,6 +149,16 @@ export class Dashboard implements OnInit {
     this.activeMode = this.activeMode === '2d' ? '3d' : '2d';
   }
 
+  // ─── Scrolling ───────────────────────────────────────────
+
+  onHorizontalScroll(event: WheelEvent): void {
+    if (event.deltaY !== 0) {
+      const target = event.currentTarget as HTMLElement;
+      target.scrollLeft += event.deltaY;
+      event.preventDefault();
+    }
+  }
+
   // ─── Trailer Selection ───────────────────────────────────
 
   selectTrailer(t: TrailerPreset): void {

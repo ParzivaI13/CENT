@@ -138,6 +138,13 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
       const currentItems = Array.from(this.pallets.values()).map(b => b.preset);
       currentItems.push(preset);
 
+      // Save previous layout to revert if new pallet causes overflow
+      const previousLayout = Array.from(this.pallets.values()).map(b => ({
+        preset: b.preset,
+        pos: b.mesh.position.clone(),
+        rotated: b.mesh.rotation.y > 0.1
+      }));
+
       const itemMap = new Map<string, { preset: CargoPreset; quantity: number }>();
       for (const p of currentItems) {
         if (!itemMap.has(p.id)) {
@@ -150,6 +157,11 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
       const result = this.autoLoadPallets(items);
 
       if (result.placed < result.total) {
+        // Revert to previous layout
+        this.resetLoad();
+        for (const item of previousLayout) {
+          this.spawnPalletAt(item.preset, item.pos.x, item.pos.y, item.pos.z, item.rotated);
+        }
         this.spawnBlocked.emit(preset.name);
       }
       return;
