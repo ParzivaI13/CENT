@@ -26,6 +26,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
   @Input() activeMode: '2d' | '3d' = '3d';
   @Input() activeTrailer: TrailerPreset | null = null;
   @Input() userId = '';
+  @Input() autoOptimizeAll = false;
 
   @Output() palletSelected = new EventEmitter<string | null>();
   @Output() edgeHoverRotate = new EventEmitter<{ x: number; y: number } | null>();
@@ -133,6 +134,27 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
 
   /** Spawn a pallet from a saved preset (called by parent Dashboard) */
   spawnPalletFromPreset(preset: CargoPreset): void {
+    if (this.autoOptimizeAll) {
+      const currentItems = Array.from(this.pallets.values()).map(b => b.preset);
+      currentItems.push(preset);
+
+      const itemMap = new Map<string, { preset: CargoPreset; quantity: number }>();
+      for (const p of currentItems) {
+        if (!itemMap.has(p.id)) {
+          itemMap.set(p.id, { preset: p, quantity: 1 });
+        } else {
+          itemMap.get(p.id)!.quantity++;
+        }
+      }
+      const items = Array.from(itemMap.values());
+      const result = this.autoLoadPallets(items);
+
+      if (result.placed < result.total) {
+        this.spawnBlocked.emit(preset.name);
+      }
+      return;
+    }
+
     const id = 'pallet-' + crypto.randomUUID().substring(0, 8);
 
     // Mesh
@@ -164,16 +186,21 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     const edges = new THREE.LineSegments(edgesGeo, edgesMat);
     mesh.add(edges); // child of mesh so it moves together
 
-    // Position near trailer rear opening
-    const startZ = this.trailerL / 2 - preset.length / 2;
-    const startY = preset.height / 2;
-    mesh.position.set(0, startY, startZ);
+    // Try to find an optimal spot
+    const spot = this.findOptimalSpot(preset);
 
-    if (this.checkAABBOverlap(mesh) || this.isOutOfBounds(mesh)) {
+    if (!spot) {
       this.spawnBlocked.emit(preset.name);
       mesh.geometry.dispose();
       (mesh.material as THREE.Material).dispose();
       return;
+    }
+
+    mesh.position.set(spot.x, spot.y, spot.z);
+    if (spot.rotated) {
+      mesh.rotation.y = Math.PI / 2;
+      mesh.userData['width'] = preset.length;
+      mesh.userData['length'] = preset.width;
     }
 
     this.scene.add(mesh);
@@ -182,6 +209,95 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
 
     // Auto-select the newly spawned pallet
     this.selectPalletById(id);
+  }
+
+  private findOptimalSpot(preset: CargoPreset): { x: number, y: number, z: number, rotated: boolean } | null {
+    const occupied: { x: number; z: number; y: number; w: number; l: number; h: number; stackable: boolean }[] = [];
+    this.pallets.forEach(bundle => {
+      const m = bundle.mesh;
+      occupied.push({
+        x: m.position.x,
+        y: m.position.y,
+        z: m.position.z,
+        w: m.userData['width'] || 1.0,
+        l: m.userData['length'] || 1.2,
+        h: m.userData['height'] || 1.6,
+        stackable: m.userData['stackable'] || false,
+      });
+    });
+
+    const halfW = this.trailerW / 2;
+    const halfL = this.trailerL / 2;
+    const step = 0.05;
+
+    const orientations = [
+      { w: preset.width, l: preset.length },
+      { w: preset.length, l: preset.width },
+    ];
+
+    const ph = preset.height;
+
+    // --- FLOOR LAYER ---
+    for (const orient of orientations) {
+      const pw = orient.w;
+      const pl = orient.l;
+
+      for (let z = -halfL + pl / 2; z <= halfL - pl / 2 + step / 2; z += step) {
+        for (let x = -halfW + pw / 2; x <= halfW - pw / 2 + step / 2; x += step) {
+          const y = ph / 2;
+          let overlaps = false;
+          for (const occ of occupied) {
+            const xOv = Math.abs(x - occ.x) < (pw / 2 + occ.w / 2 - 0.005);
+            const zOv = Math.abs(z - occ.z) < (pl / 2 + occ.l / 2 - 0.005);
+            const yOv = Math.abs(y - occ.y) < (ph / 2 + occ.h / 2 - 0.005);
+            if (xOv && zOv && yOv) {
+              overlaps = true;
+              break;
+            }
+          }
+
+          if (!overlaps && y + ph / 2 <= this.trailerH + 0.01) {
+            return { x, y, z, rotated: orient.w !== preset.width };
+          }
+        }
+      }
+    }
+
+    // --- STACKING LAYER ---
+    for (const orient of orientations) {
+      const pw = orient.w;
+      const pl = orient.l;
+
+      for (const base of occupied) {
+        if (!base.stackable) continue;
+
+        const stackY = base.y + base.h / 2 + ph / 2;
+        if (stackY + ph / 2 > this.trailerH + 0.01) continue;
+
+        const x = base.x;
+        const z = base.z;
+
+        if (x - pw / 2 < -halfW - 0.01 || x + pw / 2 > halfW + 0.01) continue;
+        if (z - pl / 2 < -halfL - 0.01 || z + pl / 2 > halfL + 0.01) continue;
+
+        let overlaps = false;
+        for (const occ of occupied) {
+          const xOv = Math.abs(x - occ.x) < (pw / 2 + occ.w / 2 - 0.005);
+          const zOv = Math.abs(z - occ.z) < (pl / 2 + occ.l / 2 - 0.005);
+          const yOv = Math.abs(stackY - occ.y) < (ph / 2 + occ.h / 2 - 0.005);
+          if (xOv && zOv && yOv) {
+            overlaps = true;
+            break;
+          }
+        }
+
+        if (!overlaps) {
+          return { x, y: stackY, z, rotated: orient.w !== preset.width };
+        }
+      }
+    }
+
+    return null;
   }
 
   /** Rotate the currently selected pallet by 90° if space permits */
@@ -995,10 +1111,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
   private spawnPalletAt(preset: CargoPreset, x: number, y: number, z: number, rotated: boolean): void {
     const id = 'pallet-' + crypto.randomUUID().substring(0, 8);
 
-    const effectiveW = rotated ? preset.length : preset.width;
-    const effectiveL = rotated ? preset.width : preset.length;
-
-    const geo = new THREE.BoxGeometry(effectiveW, preset.height, effectiveL);
+    const geo = new THREE.BoxGeometry(preset.width, preset.height, preset.length);
     const mat = new THREE.MeshPhongMaterial({
       color: new THREE.Color(preset.color),
       flatShading: true,
@@ -1013,8 +1126,8 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     mesh.userData = {
       id,
       name: preset.name,
-      length: effectiveL,
-      width: effectiveW,
+      length: rotated ? preset.width : preset.length,
+      width: rotated ? preset.length : preset.width,
       height: preset.height,
       stackable: preset.stackable,
       color: preset.color,

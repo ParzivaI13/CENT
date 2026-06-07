@@ -73,6 +73,9 @@ export class Dashboard implements OnInit {
   newCargoColor = '#3b82f6';
   cargoStackable = false;
 
+  /** Auto Optimize */
+  autoOptimizeAll = false;
+
   /** Auto-loadout */
   autoLoadItems: { preset: CargoPreset; quantity: number }[] = [];
   autoLoadResult: { placed: number; total: number } | null = null;

@@ -45,6 +45,7 @@ export const en: Record<string, string> = {
   'dashboard.clearAll': 'Clear all',
   'dashboard.signOut': 'Sign Out',
   'dashboard.logisticsDriver': 'Logistics Driver',
+  'dashboard.autoOptimize': 'Auto-Optimize on Add',
 
   // ─── Dashboard Dropdowns ──────────────────────────────
   'dashboard.defaultTrailer': 'Default Trailer',

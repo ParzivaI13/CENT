@@ -5,6 +5,7 @@
       [activeMode]="activeMode" 
       [activeTrailer]="activeTrailer"
       [userId]="userId"
+      [autoOptimizeAll]="autoOptimizeAll"
       (palletSelected)="onPalletSelected($event)"
       (edgeHoverRotate)="onEdgeHoverRotate($event)"
       (spawnBlocked)="onSpawnBlocked($event)">
@@ -50,6 +51,14 @@
             <span>{{ i18n.t('dashboard.pallets') }}</span>
           </button>
         </div>
+
+        <div class="divider-vertical"></div>
+
+        <!-- Auto Optimize Toggle Switch -->
+        <button class="btn-mode-toggle" [class.mode-3d]="autoOptimizeAll" (click)="autoOptimizeAll = !autoOptimizeAll" [title]="i18n.t('dashboard.autoOptimize')">
+          <span class="mode-label">{{ i18n.t('dashboard.autoOptimize') }}</span>
+          <div class="indicator-dot"></div>
+        </button>
 
         <div class="divider-vertical"></div>
 

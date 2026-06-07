@@ -45,6 +45,7 @@ export const uk: Record<string, string> = {
   'dashboard.clearAll': 'Очистити все',
   'dashboard.signOut': 'Вийти',
   'dashboard.logisticsDriver': 'Логіст-водій',
+  'dashboard.autoOptimize': 'Авто-оптимізація при додаванні',
 
   // ─── Dashboard Dropdowns ──────────────────────────────
   'dashboard.defaultTrailer': 'Стандартний причіп',
