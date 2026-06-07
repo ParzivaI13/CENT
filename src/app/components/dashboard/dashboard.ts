@@ -319,12 +319,26 @@ export class Dashboard implements OnInit {
       return;
     }
 
+    const l = Number(this.newTrailerL);
+    const w = Number(this.newTrailerW);
+    const h = Number(this.newTrailerH);
+
+    if (!l || !w || !h || l <= 0 || w <= 0 || h <= 0 || !isFinite(l) || !isFinite(w) || !isFinite(h)) {
+      this.showToast(this.i18n.t('toast.invalidTrailerDimensions'), 'error');
+      return;
+    }
+
+    if (l > 25 || w > 5 || h > 5) {
+      this.showToast(this.i18n.t('toast.trailerDimensionsTooLarge'), 'error');
+      return;
+    }
+
     const newPreset: TrailerPreset = {
       id: this.generateId('t'),
       name: this.trailerName,
-      length: Number(this.newTrailerL),
-      width: Number(this.newTrailerW),
-      height: Number(this.newTrailerH),
+      length: l,
+      width: w,
+      height: h,
     };
 
     this.closeAllOverlays();
@@ -362,12 +376,26 @@ export class Dashboard implements OnInit {
       return;
     }
 
+    const l = Number(this.newCargoL);
+    const w = Number(this.newCargoW);
+    const h = Number(this.newCargoH);
+
+    if (!l || !w || !h || l <= 0 || w <= 0 || h <= 0 || !isFinite(l) || !isFinite(w) || !isFinite(h)) {
+      this.showToast(this.i18n.t('toast.invalidCargoDimensions'), 'error');
+      return;
+    }
+
+    if (l > 10 || w > 10 || h > 10) {
+      this.showToast(this.i18n.t('toast.cargoDimensionsTooLarge'), 'error');
+      return;
+    }
+
     const newPreset: CargoPreset = {
       id: this.generateId('c'),
       name: this.cargoName,
-      length: Number(this.newCargoL),
-      width: Number(this.newCargoW),
-      height: Number(this.newCargoH),
+      length: l,
+      width: w,
+      height: h,
       color: this.newCargoColor,
       stackable: this.cargoStackable,
     };

@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, NgZone, ChangeDetectorRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Auth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from '@angular/fire/auth';
@@ -14,6 +14,8 @@ import { ThemeService } from '../../services/theme.service';
 export class Login {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
+  private readonly ngZone = inject(NgZone);
+  private readonly cdr = inject(ChangeDetectorRef);
   readonly i18n = inject(I18nService);
   readonly themeService = inject(ThemeService);
 
@@ -38,12 +40,22 @@ export class Login {
       } else {
         await signInWithEmailAndPassword(this.auth, this.email, this.password);
       }
-      this.router.navigate(['/dashboard']);
+      this.ngZone.run(() => {
+        this.router.navigate(['/dashboard']);
+      });
     } catch (error: any) {
-      this.errorMessage = this.getFriendlyErrorMessage(error.code);
-    } finally {
-      this.isLoading = false;
+      this.ngZone.run(() => {
+        this.errorMessage = this.getFriendlyErrorMessage(error.code);
+        this.isLoading = false;
+        this.cdr.detectChanges();
+      });
+      return;
     }
+
+    this.ngZone.run(() => {
+      this.isLoading = false;
+      this.cdr.detectChanges();
+    });
   }
 
   toggleMode(): void {
@@ -60,6 +72,7 @@ export class Login {
       'auth/invalid-credential': 'login.error.invalidCredential',
       'auth/email-already-in-use': 'login.error.emailInUse',
       'auth/weak-password': 'login.error.weakPassword',
+      'auth/too-many-requests': 'login.error.tooManyRequests',
     };
 
     const key = errorMap[code] ?? 'login.error.generic';

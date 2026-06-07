@@ -668,6 +668,16 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
         mesh.position.x = Math.round(mesh.position.x * 10) / 10;
         mesh.position.z = Math.round(mesh.position.z * 10) / 10;
 
+        // Snap to trailer wall if within one grid step (fixes Math.round asymmetry)
+        const snapW = mesh.userData['width'] || 1.0;
+        const snapL = mesh.userData['length'] || 1.2;
+        const wallX = this.trailerW / 2 - snapW / 2;
+        const wallZ = this.trailerL / 2 - snapL / 2;
+        if (Math.abs(mesh.position.x - wallX) < 0.1) mesh.position.x = wallX;
+        if (Math.abs(mesh.position.x + wallX) < 0.1) mesh.position.x = -wallX;
+        if (Math.abs(mesh.position.z - wallZ) < 0.1) mesh.position.z = wallZ;
+        if (Math.abs(mesh.position.z + wallZ) < 0.1) mesh.position.z = -wallZ;
+
         if (this.activeMode === '2d') {
           mesh.position.y = (mesh.userData['height'] || 1.6) / 2;
         } else {
@@ -766,9 +776,9 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
       const l2 = other.userData['length'] || 1.2;
       const h2 = other.userData['height'] || 1.6;
 
-      const xOverlap = Math.abs(mesh.position.x - other.position.x) < (w1 / 2 + w2 / 2 - 0.03);
-      const zOverlap = Math.abs(mesh.position.z - other.position.z) < (l1 / 2 + l2 / 2 - 0.03);
-      const yOverlap = Math.abs(mesh.position.y - other.position.y) < (h1 / 2 + h2 / 2 - 0.03);
+      const xOverlap = Math.abs(mesh.position.x - other.position.x) < (w1 / 2 + w2 / 2 - 0.005);
+      const zOverlap = Math.abs(mesh.position.z - other.position.z) < (l1 / 2 + l2 / 2 - 0.005);
+      const yOverlap = Math.abs(mesh.position.y - other.position.y) < (h1 / 2 + h2 / 2 - 0.005);
 
       if (xOverlap && zOverlap && yOverlap) {
         collides = true;
@@ -817,8 +827,8 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
       const otherL = other.userData['length'] || 1.2;
       const otherH = other.userData['height'] || 1.6;
 
-      const xOverlap = Math.abs(dragged.position.x - other.position.x) < (draggedW / 2 + otherW / 2 - 0.05);
-      const zOverlap = Math.abs(dragged.position.z - other.position.z) < (draggedL / 2 + otherL / 2 - 0.05);
+      const xOverlap = Math.abs(dragged.position.x - other.position.x) < (draggedW / 2 + otherW / 2 - 0.005);
+      const zOverlap = Math.abs(dragged.position.z - other.position.z) < (draggedL / 2 + otherL / 2 - 0.005);
 
       if (xOverlap && zOverlap) {
         const isStackable = other.userData['stackable'] === true;
@@ -829,7 +839,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
             highestStackY = stackY;
           }
         } else {
-          const verticalOverlap = Math.abs(dragged.position.y - other.position.y) < (draggedH / 2 + otherH / 2 - 0.05);
+          const verticalOverlap = Math.abs(dragged.position.y - other.position.y) < (draggedH / 2 + otherH / 2 - 0.005);
           if (verticalOverlap) {
             targetY = draggedH / 2;
           }
@@ -913,9 +923,9 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
 
             let overlaps = false;
             for (const occ of occupied) {
-              const xOv = Math.abs(x - occ.x) < (pw / 2 + occ.w / 2 - 0.02);
-              const zOv = Math.abs(z - occ.z) < (pl / 2 + occ.l / 2 - 0.02);
-              const yOv = Math.abs(y - occ.y) < (ph / 2 + occ.h / 2 - 0.02);
+              const xOv = Math.abs(x - occ.x) < (pw / 2 + occ.w / 2 - 0.005);
+              const zOv = Math.abs(z - occ.z) < (pl / 2 + occ.l / 2 - 0.005);
+              const yOv = Math.abs(y - occ.y) < (ph / 2 + occ.h / 2 - 0.005);
               if (xOv && zOv && yOv) {
                 overlaps = true;
                 break;
@@ -957,9 +967,9 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
 
             let overlaps = false;
             for (const occ of occupied) {
-              const xOv = Math.abs(x - occ.x) < (pw / 2 + occ.w / 2 - 0.02);
-              const zOv = Math.abs(z - occ.z) < (pl / 2 + occ.l / 2 - 0.02);
-              const yOv = Math.abs(stackY - occ.y) < (ph / 2 + occ.h / 2 - 0.02);
+              const xOv = Math.abs(x - occ.x) < (pw / 2 + occ.w / 2 - 0.005);
+              const zOv = Math.abs(z - occ.z) < (pl / 2 + occ.l / 2 - 0.005);
+              const yOv = Math.abs(stackY - occ.y) < (ph / 2 + occ.h / 2 - 0.005);
               if (xOv && zOv && yOv) {
                 overlaps = true;
                 break;

@@ -547,6 +547,8 @@
   pointer-events: auto !important;
   visibility: visible;
   transform: translateX(-50%) translateY(0);
+  /* Offset to avoid overlapping the auto-load FAB on the right */
+  margin-right: 80px;
 }
 
 .fab-btn {
@@ -1188,7 +1190,12 @@
 
   /* Action bar */
   .floating-action-bar {
-    bottom: 16px;
+    bottom: 76px;
+    margin-right: 0;
+  }
+
+  .floating-action-bar.show {
+    margin-right: 0;
   }
 
   /* Dialog */

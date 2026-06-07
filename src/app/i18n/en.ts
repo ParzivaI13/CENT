@@ -34,6 +34,7 @@ export const en: Record<string, string> = {
   'login.error.invalidCredential': 'Invalid email or password.',
   'login.error.emailInUse': 'This email is already registered.',
   'login.error.weakPassword': 'Password should be at least 6 characters.',
+  'login.error.tooManyRequests': 'Too many failed attempts. Please try again later.',
   'login.error.generic': 'An unexpected error occurred. Please try again.',
 
   // ─── Dashboard Header ────────────────────────────────
@@ -82,6 +83,10 @@ export const en: Record<string, string> = {
   // ─── Dashboard Toasts ─────────────────────────────────
   'toast.trailerNameRequired': 'Please provide a name for this trailer.',
   'toast.cargoNameRequired': 'Please provide a name for this cargo type.',
+  'toast.invalidTrailerDimensions': 'Trailer dimensions must be positive numbers greater than zero.',
+  'toast.trailerDimensionsTooLarge': 'Trailer dimensions are too large. Max: 25m × 5m × 5m.',
+  'toast.invalidCargoDimensions': 'Cargo dimensions must be positive numbers greater than zero.',
+  'toast.cargoDimensionsTooLarge': 'Cargo dimensions are too large. Max: 10m × 10m × 10m.',
   'toast.spawnBlocked': 'Cannot spawn "{name}". The spawn area is blocked or the pallet is too large.',
 
   // ─── Three.js Canvas ──────────────────────────────────

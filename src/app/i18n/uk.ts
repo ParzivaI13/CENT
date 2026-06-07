@@ -34,6 +34,7 @@ export const uk: Record<string, string> = {
   'login.error.invalidCredential': 'Невірний email або пароль.',
   'login.error.emailInUse': 'Ця адреса вже зареєстрована.',
   'login.error.weakPassword': 'Пароль повинен містити щонайменше 6 символів.',
+  'login.error.tooManyRequests': 'Занадто багато невдалих спроб. Спробуйте пізніше.',
   'login.error.generic': 'Виникла непередбачена помилка. Спробуйте ще раз.',
 
   // ─── Dashboard Header ────────────────────────────────
@@ -82,6 +83,10 @@ export const uk: Record<string, string> = {
   // ─── Dashboard Toasts ─────────────────────────────────
   'toast.trailerNameRequired': 'Будь ласка, вкажіть назву для цього причепа.',
   'toast.cargoNameRequired': 'Будь ласка, вкажіть назву для цього типу вантажу.',
+  'toast.invalidTrailerDimensions': 'Розміри причепа повинні бути додатними числами більше нуля.',
+  'toast.trailerDimensionsTooLarge': 'Розміри причепа завеликі. Макс: 25м × 5м × 5м.',
+  'toast.invalidCargoDimensions': 'Розміри вантажу повинні бути додатними числами більше нуля.',
+  'toast.cargoDimensionsTooLarge': 'Розміри вантажу завеликі. Макс: 10м × 10м × 10м.',
   'toast.spawnBlocked': 'Неможливо створити "{name}". Зона розміщення зайнята або палета завелика.',
 
   // ─── Three.js Canvas ──────────────────────────────────
