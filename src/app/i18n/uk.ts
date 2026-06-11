@@ -56,6 +56,16 @@ export const uk: Record<string, string> = {
   // ─── Dashboard Action Bar ─────────────────────────────
   'dashboard.rotate': 'Обертати',
 
+  // ─── Live Editor ──────────────────────────────────────
+  'editor.trailerTitle': 'Редактор трейлера',
+  'editor.customPalletTitle': 'Створити власну палету',
+  'editor.spawnCustom': 'Додати на сцену',
+  'editor.customColor': 'Колір',
+  'editor.stackable': 'Штабелювання',
+  'editor.length': 'Довжина',
+  'editor.width': 'Ширина',
+  'editor.height': 'Висота',
+
   // ─── Dashboard Modals — Trailer ───────────────────────
   'dashboard.modal.createTrailer': 'Створити профіль причепа',
   'dashboard.modal.profileLabel': 'Назва профілю',

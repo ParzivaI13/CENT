@@ -556,6 +556,70 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     this.handleModeChange();
   }
 
+  // ─── LIVE EDITOR METHODS ──────────────────────────────────
+
+  /** Live update trailer dimensions without clearing pallets */
+  applyTrailerDimensions(l: number, w: number, h: number): void {
+    if (!this.trailerBox) return;
+    this.trailerL = l;
+    this.trailerW = w;
+    this.trailerH = h;
+
+    this.scene.remove(this.trailerBox);
+    this.scene.remove(this.trailerOutline);
+    this.scene.remove(this.cab);
+    this.scene.remove(this.floorMesh);
+
+    this.trailerBox.geometry.dispose();
+    this.trailerOutline.geometry.dispose();
+    this.cab.geometry.dispose();
+    this.floorMesh.geometry.dispose();
+
+    this.createTrailerEnvironment();
+    if (this.activeMode === '2d') {
+      this.updateOrthoFrustum();
+    }
+  }
+
+  /** Get unrotated original dimensions of the selected pallet */
+  getSelectedPalletDimensions(): { length: number; width: number; height: number } | null {
+    if (!this.selectedPalletId) return null;
+    const bundle = this.pallets.get(this.selectedPalletId);
+    if (!bundle) return null;
+    return {
+      length: bundle.preset.length,
+      width: bundle.preset.width,
+      height: bundle.preset.height,
+    };
+  }
+
+  /** Live update the selected pallet dimensions */
+  updateSelectedPalletDimensions(length: number, width: number, height: number): void {
+    if (!this.selectedPalletId) return;
+    const bundle = this.pallets.get(this.selectedPalletId);
+    if (!bundle) return;
+
+    // Save back to preset so it remembers if unselected and reselected
+    bundle.preset.length = length;
+    bundle.preset.width = width;
+    bundle.preset.height = height;
+
+    bundle.mesh.geometry.dispose();
+    const isRotated = bundle.mesh.rotation.y > 0.1;
+    const effectiveW = isRotated ? length : width;
+    const effectiveL = isRotated ? width : length;
+    bundle.mesh.geometry = new THREE.BoxGeometry(effectiveW, height, effectiveL);
+
+    bundle.edges.geometry.dispose();
+    bundle.edges.geometry = new THREE.EdgesGeometry(bundle.mesh.geometry);
+
+    bundle.mesh.userData['length'] = effectiveL;
+    bundle.mesh.userData['width'] = effectiveW;
+    bundle.mesh.userData['height'] = height;
+
+    this.clampObjectToTrailer(bundle.mesh);
+  }
+
   // ─── MODE ─────────────────────────────────────────────────
 
   /** Update orthographic frustum to fit the trailer with padding */

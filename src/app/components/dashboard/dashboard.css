@@ -306,6 +306,90 @@
 }
 
 /* ═══════════════════════════════════════════════
+   Floating Left Sidebar (Live Editor)
+   Mirrors the center-dialog-card design system
+   ═══════════════════════════════════════════════ */
+.floating-left-sidebar {
+  position: absolute;
+  top: 92px;
+  left: 20px;
+  width: 340px;
+  background: var(--bg-card-strong);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  box-shadow: var(--glass-shadow-heavy);
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  transition: all var(--transition-smooth);
+  color: var(--text-secondary);
+  box-sizing: border-box;
+}
+
+/* ─── Sidebar Section Block ────────────────── */
+.sidebar-panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ─── Sidebar Section Header (dialog-header style) ── */
+.sidebar-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar-panel-header h4 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.sidebar-panel-header-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+/* ─── Sidebar Divider (gradient accent line) ─── */
+.sidebar-panel-divider {
+  height: 1px;
+  margin: 18px 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--border-medium) 20%,
+    var(--accent-purple-border) 50%,
+    var(--border-medium) 80%,
+    transparent 100%
+  );
+}
+
+/* ─── Spawn Button (uses btn-dialog-submit base) ── */
+.btn-sidebar-spawn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.sidebar-spawn-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+
+/* ═══════════════════════════════════════════════
    Pop-Down Horizontal Selector Dropdowns
    ═══════════════════════════════════════════════ */
 .horizontal-dropdown-panel {
@@ -677,6 +761,35 @@
   width: 24px;
   height: 24px;
   color: #ffffff;
+}
+
+/* Sidebar Toggle FAB for Mobile */
+.btn-sidebar-mobile-fab {
+  display: none;
+  position: absolute;
+  bottom: 28px;
+  left: 28px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 2px solid var(--border-subtle);
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  z-index: 80;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+  transition: all var(--transition-normal);
+}
+
+.btn-sidebar-mobile-fab:active {
+  transform: scale(0.95);
+}
+
+.btn-sidebar-mobile-fab .auto-load-icon {
+  color: var(--text-primary);
 }
 
 /* Auto-load dialog overrides */
@@ -1222,9 +1335,42 @@
     height: 48px;
   }
 
+  /* Sidebar FAB mobile */
+  .btn-sidebar-mobile-fab {
+    display: flex;
+    bottom: 16px;
+    left: 16px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .btn-sidebar-mobile-fab .auto-load-icon,
   .auto-load-icon {
     width: 20px;
     height: 20px;
+  }
+
+  /* Mobile Sidebar Overrides */
+  .floating-left-sidebar {
+    top: auto;
+    bottom: 80px;
+    left: 10px;
+    width: calc(100% - 20px);
+    min-height: auto;
+    max-height: 50vh;
+    overflow-y: auto;
+    padding: 18px;
+    transform: translateX(-150%);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 95;
+    box-sizing: border-box;
+  }
+
+  .floating-left-sidebar.show-mobile {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
   }
 
   /* Auto-load list as grid on mobile */

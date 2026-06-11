@@ -37,10 +37,11 @@ export class Dashboard implements OnInit {
   showTrailersDropdown = false;
   showCargoDropdown = false;
 
-  /** Modal states */
+  /** Modal & Mobile Sidebar states */
   showAddTrailerModal = false;
   showAddCargoModal = false;
   showAutoLoadModal = false;
+  showSidebarMobile = false;
 
   /** Active trailer */
   activeTrailer: TrailerPreset = {
@@ -75,6 +76,17 @@ export class Dashboard implements OnInit {
 
   /** Auto Optimize */
   autoOptimizeAll = false;
+
+  /** Live Editor State */
+  liveTrailerL = 12.0;
+  liveTrailerW = 2.5;
+  liveTrailerH = 2.7;
+
+  customPalletL = 1.2;
+  customPalletW = 1.0;
+  customPalletH = 1.6;
+  customPalletColor = '#ff0000';
+  customPalletStackable = false;
 
   /** Auto-loadout */
   autoLoadItems: { preset: CargoPreset; quantity: number }[] = [];
@@ -162,7 +174,10 @@ export class Dashboard implements OnInit {
   // ─── Trailer Selection ───────────────────────────────────
 
   selectTrailer(t: TrailerPreset): void {
-    this.activeTrailer = t;
+    this.activeTrailer = { ...t };
+    this.liveTrailerL = t.length;
+    this.liveTrailerW = t.width;
+    this.liveTrailerH = t.height;
   }
 
   selectDefaultTrailer(): void {
@@ -173,6 +188,9 @@ export class Dashboard implements OnInit {
       width: 2.5,
       height: 2.7,
     };
+    this.liveTrailerL = 12.0;
+    this.liveTrailerW = 2.5;
+    this.liveTrailerH = 2.7;
   }
 
   // ─── Pallet Spawning ─────────────────────────────────────
@@ -189,6 +207,10 @@ export class Dashboard implements OnInit {
     this.selectedPalletId = id;
     if (!id) {
       this.edgeRotatePos = null;
+    } else {
+      if (this.canvasRef) {
+        // Dimensions update for live editing removed
+      }
     }
   }
 
@@ -198,6 +220,41 @@ export class Dashboard implements OnInit {
 
   onSpawnBlocked(name: string): void {
     this.showToast(this.i18n.t('toast.spawnBlocked', { name }), 'warning');
+  }
+
+  // ─── Live Editing Handlers ───────────────────────────────
+
+  onLiveTrailerEdit(): void {
+    if (this.canvasRef) {
+      this.canvasRef.applyTrailerDimensions(this.liveTrailerL, this.liveTrailerW, this.liveTrailerH);
+      this.activeTrailer.length = this.liveTrailerL;
+      this.activeTrailer.width = this.liveTrailerW;
+      this.activeTrailer.height = this.liveTrailerH;
+    }
+  }
+
+  spawnCustomPallet(): void {
+    if (!this.canvasRef) return;
+    const l = Number(this.customPalletL);
+    const w = Number(this.customPalletW);
+    const h = Number(this.customPalletH);
+
+    if (!l || !w || !h || l <= 0 || w <= 0 || h <= 0) {
+      this.showToast(this.i18n.t('toast.invalidCargoDimensions'), 'error');
+      return;
+    }
+
+    const customPreset: CargoPreset = {
+      id: `custom-${crypto.randomUUID().substring(0, 8)}`,
+      name: this.i18n.t('editor.customPalletTitle'),
+      length: l,
+      width: w,
+      height: h,
+      color: this.customPalletColor,
+      stackable: this.customPalletStackable,
+    };
+    
+    this.canvasRef.spawnPalletFromPreset(customPreset);
   }
 
   // ─── Selected Pallet Actions ─────────────────────────────
@@ -234,6 +291,11 @@ export class Dashboard implements OnInit {
     this.showAddTrailerModal = false;
     this.showAddCargoModal = false;
     this.showAutoLoadModal = false;
+    this.showSidebarMobile = false;
+  }
+
+  toggleSidebarMobile(): void {
+    this.showSidebarMobile = !this.showSidebarMobile;
   }
 
   openAddTrailerModal(): void {

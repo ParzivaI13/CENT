@@ -56,6 +56,16 @@ export const en: Record<string, string> = {
   // ─── Dashboard Action Bar ─────────────────────────────
   'dashboard.rotate': 'Rotate',
 
+  // ─── Live Editor ──────────────────────────────────────
+  'editor.trailerTitle': 'Trailer Editor',
+  'editor.customPalletTitle': 'Spawn Custom Pallet',
+  'editor.spawnCustom': 'Spawn in Scene',
+  'editor.customColor': 'Color',
+  'editor.stackable': 'Stackable',
+  'editor.length': 'Length',
+  'editor.width': 'Width',
+  'editor.height': 'Height',
+
   // ─── Dashboard Modals — Trailer ───────────────────────
   'dashboard.modal.createTrailer': 'Create Trailer Profile',
   'dashboard.modal.profileLabel': 'Profile Label',
