@@ -2,10 +2,12 @@ import { Component, inject, OnInit, ViewChild, DestroyRef, ChangeDetectorRef } f
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Auth, signOut, user, User } from '@angular/fire/auth';
-import { Observable } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
+import { debounceTime } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ThreeCanvas } from '../three-canvas/three-canvas';
-import { StorageService, TrailerPreset, CargoPreset } from '../../services/storage.service';
+import { PalletListItem } from '../three-canvas/three-canvas';
+import { StorageService, TrailerPreset, CargoPreset, LayoutSnapshot } from '../../services/storage.service';
 import { I18nService } from '../../services/i18n.service';
 import { ThemeService } from '../../services/theme.service';
 
@@ -41,6 +43,7 @@ export class Dashboard implements OnInit {
   showAddTrailerModal = false;
   showAddCargoModal = false;
   showAutoLoadModal = false;
+  showHistoryModal = false;
   showSidebarMobile = false;
 
   /** Active trailer */
@@ -56,9 +59,13 @@ export class Dashboard implements OnInit {
   selectedPalletId: string | null = null;
   edgeRotatePos: { x: number; y: number } | null = null;
 
+  /** Pallet sidebar list */
+  palletList: PalletListItem[] = [];
+
   /** Collections from Firestore */
   trailers: TrailerPreset[] = [];
   cargoTypes: CargoPreset[] = [];
+  layoutHistory: LayoutSnapshot[] = [];
 
   /** Form models — Trailer */
   trailerName = '';
@@ -95,6 +102,22 @@ export class Dashboard implements OnInit {
   /** Toast notifications */
   toasts: { id: number; message: string; type: 'error' | 'success' | 'warning'; removing?: boolean }[] = [];
   private toastCounter = 0;
+
+  /** Auto-save layout subject */
+  private readonly layoutSave$ = new Subject<LayoutSnapshot>();
+
+  constructor() {
+    this.layoutSave$.pipe(
+      debounceTime(2000),
+      takeUntilDestroyed()
+    ).subscribe((snapshot) => {
+      if (this.userId) {
+        this.storageService.saveLayout(this.userId, snapshot).catch(err => {
+          console.error('[Firestore] Failed to auto-save layout', err);
+        });
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.currentUser$
@@ -133,6 +156,16 @@ export class Dashboard implements OnInit {
           this.cdr.detectChanges();
         },
         error: (err) => { console.error('[Firestore] Cargo error:', err); },
+      });
+
+    this.storageService.getLayouts(uid)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (data) => {
+          this.layoutHistory = data;
+          this.cdr.detectChanges();
+        },
+        error: (err) => { console.error('[Firestore] Layouts error:', err); }
       });
   }
 
@@ -222,6 +255,46 @@ export class Dashboard implements OnInit {
     this.showToast(this.i18n.t('toast.spawnBlocked', { name }), 'warning');
   }
 
+  onLayoutChanged(snapshot: LayoutSnapshot): void {
+    this.layoutSave$.next(snapshot);
+  }
+
+  onPalletListChanged(list: PalletListItem[]): void {
+    this.palletList = list;
+  }
+
+  onSidebarPalletClick(id: string): void {
+    if (this.canvasRef) {
+      this.canvasRef.selectPalletById(id);
+    }
+  }
+
+  onSidebarPalletDimChange(item: PalletListItem): void {
+    if (!this.canvasRef) return;
+    const l = Number(item.length);
+    const w = Number(item.width);
+    const h = Number(item.height);
+    if (l > 0 && w > 0 && h > 0) {
+      this.canvasRef.updatePalletDimensionsById(item.id, l, w, h);
+    }
+  }
+
+  onSidebarPalletColorChange(item: PalletListItem): void {
+    if (this.canvasRef) {
+      this.canvasRef.updatePalletColor(item.id, item.color);
+    }
+  }
+
+  deleteSidebarPallet(id: string): void {
+    if (this.canvasRef) {
+      this.canvasRef.deletePalletById(id);
+      if (this.selectedPalletId === id) {
+        this.selectedPalletId = null;
+        this.edgeRotatePos = null;
+      }
+    }
+  }
+
   // ─── Live Editing Handlers ───────────────────────────────
 
   onLiveTrailerEdit(): void {
@@ -291,6 +364,7 @@ export class Dashboard implements OnInit {
     this.showAddTrailerModal = false;
     this.showAddCargoModal = false;
     this.showAutoLoadModal = false;
+    this.showHistoryModal = false;
     this.showSidebarMobile = false;
   }
 
@@ -318,6 +392,71 @@ export class Dashboard implements OnInit {
   closeAddCargoModal(): void {
     this.showAddCargoModal = false;
     this.resetCargoForm();
+  }
+
+  // ─── History / Layout Restore Modal ──────────────────────
+
+  openHistoryModal(): void {
+    this.closeAllOverlays();
+    this.showHistoryModal = true;
+  }
+
+  closeHistoryModal(): void {
+    this.showHistoryModal = false;
+  }
+
+  restoreLayout(snapshot: LayoutSnapshot): void {
+    if (this.canvasRef) {
+      this.canvasRef.loadFromSnapshot(snapshot, false);
+      this.closeHistoryModal();
+    }
+  }
+
+  formatDate(timestamp: number): string {
+    return new Date(timestamp).toLocaleString();
+  }
+
+  // ─── Undo / Redo / Re-optimize ────────────────────────────
+
+  undo(): void {
+    this.canvasRef?.undo();
+  }
+
+  redo(): void {
+    this.canvasRef?.redo();
+  }
+
+  reoptimizeScene(): void {
+    if (!this.canvasRef) return;
+    
+    // Gather all current items and quantities
+    const itemMap = new Map<string, { preset: CargoPreset; quantity: number }>();
+    for (const item of this.palletList) {
+      // Re-construct preset from pallet list item
+      const preset: CargoPreset = {
+        id: item.id,
+        name: item.name,
+        length: item.length,
+        width: item.width,
+        height: item.height,
+        color: item.color,
+        stackable: item.stackable
+      };
+      
+      const key = `${preset.name}-${preset.length}-${preset.width}-${preset.height}`;
+      if (!itemMap.has(key)) {
+        itemMap.set(key, { preset, quantity: 1 });
+      } else {
+        itemMap.get(key)!.quantity++;
+      }
+    }
+    
+    const items = Array.from(itemMap.values());
+    if (items.length > 0) {
+      this.canvasRef.autoLoadPallets(items);
+      this.selectedPalletId = null;
+      this.edgeRotatePos = null;
+    }
   }
 
   // ─── Auto-Loadout Modal ───────────────────────────────────

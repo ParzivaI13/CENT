@@ -46,6 +46,10 @@ export const uk: Record<string, string> = {
   'dashboard.signOut': 'Вийти',
   'dashboard.logisticsDriver': 'Логіст-водій',
   'dashboard.autoOptimize': 'Авто-оптимізація при додаванні',
+  'dashboard.reoptimize': 'Переоптимізувати',
+  'dashboard.restoreLayout': 'Історія розстановок',
+  'dashboard.undo': 'Скасувати дію',
+  'dashboard.redo': 'Повторити дію',
 
   // ─── Dashboard Dropdowns ──────────────────────────────
   'dashboard.defaultTrailer': 'Стандартний причіп',
@@ -65,6 +69,9 @@ export const uk: Record<string, string> = {
   'editor.length': 'Довжина',
   'editor.width': 'Ширина',
   'editor.height': 'Висота',
+
+  // ─── Right Sidebar ────────────────────────────────────
+  'sidebar.palletList': 'Палети на сцені',
 
   // ─── Dashboard Modals — Trailer ───────────────────────
   'dashboard.modal.createTrailer': 'Створити профіль причепа',
@@ -90,6 +97,13 @@ export const uk: Record<string, string> = {
   'dashboard.modal.solveAndLoad': 'Розрахувати та завантажити',
   'dashboard.modal.allPlaced': '✓ Усі {placed} палет(и) успішно розміщені!',
   'dashboard.modal.partialPlaced': '⚠ {placed} з {total} палет розміщено. {remaining} не вмістилися.',
+
+  // ─── Dashboard Modals — History ───────────────────────
+  'dashboard.modal.historyTitle': 'Відновлення збережених розстановок',
+  'dashboard.modal.historySubtitle': 'Оберіть збережений стан, щоб повернути палети на сцену.',
+  'dashboard.modal.noHistory': 'Історія порожня.',
+  'dashboard.modal.restoreBtn': 'Відновити',
+  'dashboard.modal.palletsCount': 'палет(и)',
 
   // ─── Dashboard Toasts ─────────────────────────────────
   'toast.trailerNameRequired': 'Будь ласка, вкажіть назву для цього причепа.',

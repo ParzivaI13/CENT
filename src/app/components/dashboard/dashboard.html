@@ -8,7 +8,9 @@
       [autoOptimizeAll]="autoOptimizeAll"
       (palletSelected)="onPalletSelected($event)"
       (edgeHoverRotate)="onEdgeHoverRotate($event)"
-      (spawnBlocked)="onSpawnBlocked($event)">
+      (spawnBlocked)="onSpawnBlocked($event)"
+      (palletListChanged)="onPalletListChanged($event)"
+      (layoutChanged)="onLayoutChanged($event)">
     </app-three-canvas>
   </main>
 
@@ -62,9 +64,22 @@
 
         <div class="divider-vertical"></div>
 
+        <!-- Restore Layouts (History) button -->
+        <button class="btn-mode-toggle" (click)="openHistoryModal()" [title]="i18n.t('dashboard.restoreLayout')">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="header-act-icon"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline><polyline points="12 7 12 12 16 16"></polyline></svg>
+          <span class="mode-label">{{ i18n.t('dashboard.restoreLayout') }}</span>
+        </button>
+
+        <div class="divider-vertical"></div>
+
         <!-- Clear All button -->
         <button class="btn-header-action btn-clear-all" (click)="clearAllPallets()" [title]="i18n.t('dashboard.clearAll')">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="header-act-icon"><path d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"></path></svg>
+        </button>
+        
+        <!-- Re-optimize button -->
+        <button class="btn-header-action btn-clear-all" (click)="reoptimizeScene()" [title]="i18n.t('dashboard.reoptimize')">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="header-act-icon"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
         </button>
       </div>
 
@@ -176,6 +191,17 @@
       </div>
     </aside>
 
+    <!-- Undo / Redo floating bar right of the sidebar -->
+    <div class="history-actions-bar">
+      <button class="history-btn" (click)="undo()" [title]="i18n.t('dashboard.undo')">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="history-icon"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+      </button>
+      <div class="history-divider"></div>
+      <button class="history-btn" (click)="redo()" [title]="i18n.t('dashboard.redo')">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="history-icon"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg>
+      </button>
+    </div>
+
     <!-- Pop-Down Horizontal Selector Dropdown: Trailers -->
     <div class="horizontal-dropdown-panel trailers-dropdown" [class.show]="showTrailersDropdown" (click)="$event.stopPropagation()">
       <div class="dropdown-inner-scroll" (wheel)="onHorizontalScroll($event)">
@@ -269,6 +295,47 @@
       </svg>
     </button>
 
+    <!-- Right Sidebar: Pallet List -->
+    @if (palletList.length > 0) {
+      <aside class="floating-right-sidebar" (click)="$event.stopPropagation()">
+        <div class="sidebar-panel-header">
+          <h4>{{ i18n.t('sidebar.palletList') }} ({{ palletList.length }})</h4>
+        </div>
+        <div class="right-sidebar-scroll">
+          @for (p of palletList; track p.id) {
+            <div class="pallet-list-item" 
+                 [class.pallet-list-item-selected]="selectedPalletId === p.id"
+                 (click)="onSidebarPalletClick(p.id)">
+              <div class="pallet-list-item-header">
+                <div class="pallet-list-color-dot" [style.background-color]="p.color"></div>
+                <span class="pallet-list-number">#{{ p.number }}</span>
+                <span class="pallet-list-name">{{ p.name }}</span>
+                <button class="btn-pallet-list-delete" (click)="deleteSidebarPallet(p.id); $event.stopPropagation()">✕</button>
+              </div>
+              <div class="pallet-list-edit-row">
+                <div class="pallet-list-dim-group">
+                  <label>{{ i18n.t('editor.length') }}</label>
+                  <input type="number" [(ngModel)]="p.length" (ngModelChange)="onSidebarPalletDimChange(p)" step="0.1" min="0.1">
+                </div>
+                <div class="pallet-list-dim-group">
+                  <label>{{ i18n.t('editor.width') }}</label>
+                  <input type="number" [(ngModel)]="p.width" (ngModelChange)="onSidebarPalletDimChange(p)" step="0.1" min="0.1">
+                </div>
+                <div class="pallet-list-dim-group">
+                  <label>{{ i18n.t('editor.height') }}</label>
+                  <input type="number" [(ngModel)]="p.height" (ngModelChange)="onSidebarPalletDimChange(p)" step="0.1" min="0.1">
+                </div>
+                <div class="pallet-list-dim-group pallet-list-color-group">
+                  <label>{{ i18n.t('editor.customColor') }}</label>
+                  <input type="color" [ngModel]="p.color" (ngModelChange)="p.color = $event; onSidebarPalletColorChange(p)">
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      </aside>
+    }
+
     <!-- Sidebar Toggle FAB for Mobile (bottom-left circular button) -->
     <button class="btn-sidebar-mobile-fab" (click)="toggleSidebarMobile()" title="Editor">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="auto-load-icon">
@@ -338,6 +405,43 @@
             } @else {
               <div class="auto-load-actions">
                 <button class="btn-dialog-submit" (click)="closeAutoLoadModal()">{{ i18n.t('common.close') }}</button>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- History / Layouts Restore Modal -->
+    @if (showHistoryModal) {
+      <div class="center-dialog-backdrop" (click)="closeHistoryModal()">
+        <div class="center-dialog-card history-dialog" (click)="$event.stopPropagation()">
+          <div class="dialog-header">
+            <h4>{{ i18n.t('dashboard.modal.historyTitle') }}</h4>
+            <button class="btn-close-dialog" (click)="closeHistoryModal()">✕</button>
+          </div>
+          <div class="dialog-body">
+            <p class="auto-load-subtitle">{{ i18n.t('dashboard.modal.historySubtitle') }}</p>
+
+            @if (layoutHistory.length === 0) {
+              <div class="auto-load-empty">
+                <span>{{ i18n.t('dashboard.modal.noHistory') }}</span>
+              </div>
+            }
+
+            @if (layoutHistory.length > 0) {
+              <div class="history-list">
+                @for (snapshot of layoutHistory; track snapshot.id) {
+                  <div class="history-item">
+                    <div class="history-item-info">
+                      <span class="history-item-date">{{ formatDate(snapshot.timestamp) }}</span>
+                      <span class="history-item-count">{{ snapshot.pallets.length }} {{ i18n.t('dashboard.modal.palletsCount') }}</span>
+                    </div>
+                    <button class="btn-dialog-submit btn-history-restore" (click)="restoreLayout(snapshot)">
+                      {{ i18n.t('dashboard.modal.restoreBtn') }}
+                    </button>
+                  </div>
+                }
               </div>
             }
           </div>

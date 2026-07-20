@@ -27,10 +27,28 @@ export interface CargoPreset {
   stackable: boolean;
 }
 
+export interface LayoutPalletInfo {
+  id: string;
+  preset: CargoPreset;
+  x: number;
+  y: number;
+  z: number;
+  rotationY: number;
+}
+
+export interface LayoutSnapshot {
+  id: string;
+  timestamp: number;
+  pallets: LayoutPalletInfo[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class StorageService {
   private readonly firestore = inject(Firestore);
   private readonly ngZone = inject(NgZone);
+
+  /** Unique ID for the current browser session */
+  private readonly currentSessionId = Date.now().toString();
 
   /** Get all trailers for user (real-time stream) */
   getTrailers(uid: string): Observable<TrailerPreset[]> {
@@ -98,5 +116,36 @@ export class StorageService {
   async deleteCargoType(uid: string, id: string): Promise<void> {
     const docRef = doc(this.firestore, `users/${uid}/cargo/${id}`);
     await deleteDoc(docRef);
+  }
+
+  /** Get recently saved layouts */
+  getLayouts(uid: string): Observable<LayoutSnapshot[]> {
+    return new Observable<LayoutSnapshot[]>((subscriber) => {
+      const colRef = collection(this.firestore, `users/${uid}/layouts`);
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const layouts: LayoutSnapshot[] = [];
+          snapshot.forEach((docSnap) => {
+            layouts.push({ id: docSnap.id, ...docSnap.data() } as LayoutSnapshot);
+          });
+          // Sort by timestamp descending
+          layouts.sort((a, b) => b.timestamp - a.timestamp);
+          this.ngZone.run(() => subscriber.next(layouts));
+        },
+        (error) => {
+          console.error('[Firestore] Layouts snapshot error:', error);
+          this.ngZone.run(() => subscriber.error(error));
+        }
+      );
+      return unsubscribe;
+    });
+  }
+
+  /** Auto-save layout (we save 1 per browser session) */
+  async saveLayout(uid: string, snapshot: LayoutSnapshot): Promise<void> {
+    // Save to users/{uid}/layouts/{currentSessionId}
+    const docRef = doc(this.firestore, `users/${uid}/layouts/${this.currentSessionId}`);
+    await setDoc(docRef, { ...snapshot, id: this.currentSessionId });
   }
 }

@@ -46,6 +46,10 @@ export const en: Record<string, string> = {
   'dashboard.signOut': 'Sign Out',
   'dashboard.logisticsDriver': 'Logistics Driver',
   'dashboard.autoOptimize': 'Auto-Optimize on Add',
+  'dashboard.reoptimize': 'Re-optimize',
+  'dashboard.restoreLayout': 'Layout History',
+  'dashboard.undo': 'Undo',
+  'dashboard.redo': 'Redo',
 
   // ─── Dashboard Dropdowns ──────────────────────────────
   'dashboard.defaultTrailer': 'Default Trailer',
@@ -65,6 +69,9 @@ export const en: Record<string, string> = {
   'editor.length': 'Length',
   'editor.width': 'Width',
   'editor.height': 'Height',
+
+  // ─── Right Sidebar ────────────────────────────────────
+  'sidebar.palletList': 'Scene Pallets',
 
   // ─── Dashboard Modals — Trailer ───────────────────────
   'dashboard.modal.createTrailer': 'Create Trailer Profile',
@@ -90,6 +97,13 @@ export const en: Record<string, string> = {
   'dashboard.modal.solveAndLoad': 'Solve & Load',
   'dashboard.modal.allPlaced': '✓ All {placed} pallets placed successfully!',
   'dashboard.modal.partialPlaced': '⚠ {placed} of {total} pallets placed. {remaining} did not fit.',
+
+  // ─── Dashboard Modals — History ───────────────────────
+  'dashboard.modal.historyTitle': 'Restore Saved Layouts',
+  'dashboard.modal.historySubtitle': 'Select a saved state to restore pallets to the scene.',
+  'dashboard.modal.noHistory': 'History is empty.',
+  'dashboard.modal.restoreBtn': 'Restore',
+  'dashboard.modal.palletsCount': 'pallet(s)',
 
   // ─── Dashboard Toasts ─────────────────────────────────
   'toast.trailerNameRequired': 'Please provide a name for this trailer.',

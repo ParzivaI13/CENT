@@ -4,9 +4,20 @@ import {
 } from '@angular/core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { CargoPreset, TrailerPreset } from '../../services/storage.service';
+import { CargoPreset, TrailerPreset, LayoutSnapshot, LayoutPalletInfo } from '../../services/storage.service';
 import { ThemeService } from '../../services/theme.service';
 import { I18nService } from '../../services/i18n.service';
+
+export interface PalletListItem {
+  id: string;
+  number: number;
+  name: string;
+  length: number;
+  width: number;
+  height: number;
+  color: string;
+  stackable: boolean;
+}
 
 interface PalletMeshBundle {
   mesh: THREE.Mesh;
@@ -31,11 +42,15 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
   @Output() palletSelected = new EventEmitter<string | null>();
   @Output() edgeHoverRotate = new EventEmitter<{ x: number; y: number } | null>();
   @Output() spawnBlocked = new EventEmitter<string>();
+  @Output() palletListChanged = new EventEmitter<PalletListItem[]>();
+  @Output() layoutChanged = new EventEmitter<LayoutSnapshot>();
 
   private readonly themeService = inject(ThemeService);
   readonly i18n = inject(I18nService);
 
   selectedPalletId: string | null = null;
+  private palletCounter = 0;
+  private palletNumbers = new Map<string, number>();
 
   // Three.js core
   private renderer!: THREE.WebGLRenderer;
@@ -44,6 +59,11 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
   private orthoCamera!: THREE.OrthographicCamera;
   private orbitControls!: OrbitControls;
   private animationFrameId: number | null = null;
+
+  // History for Undo/Redo
+  private historyPast: LayoutSnapshot[] = [];
+  private historyFuture: LayoutSnapshot[] = [];
+  private isHistoryAction = false;
 
   /** Returns whichever camera is currently active based on mode */
   private get camera(): THREE.PerspectiveCamera | THREE.OrthographicCamera {
@@ -132,6 +152,103 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
 
   // ─── PUBLIC API ───────────────────────────────────────────
 
+  /** Save current state to history and emit for auto-save */
+  pushHistory(): void {
+    if (this.isHistoryAction) return;
+    
+    const pallets: LayoutPalletInfo[] = [];
+    this.pallets.forEach((bundle, id) => {
+      pallets.push({
+        id,
+        preset: bundle.preset,
+        x: bundle.mesh.position.x,
+        y: bundle.mesh.position.y,
+        z: bundle.mesh.position.z,
+        rotationY: bundle.mesh.rotation.y
+      });
+    });
+
+    const snapshot: LayoutSnapshot = {
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      pallets
+    };
+
+    this.historyPast.push(snapshot);
+    if (this.historyPast.length > 50) this.historyPast.shift(); // Limit history to 50
+    this.historyFuture = []; // Clear future on new action
+    
+    this.layoutChanged.emit(snapshot);
+  }
+
+  undo(): void {
+    if (this.historyPast.length === 0) return;
+    
+    // Save current state to future before undoing
+    const current = this.getSnapshot();
+    this.historyFuture.push(current);
+    
+    const previous = this.historyPast.pop()!;
+    this.loadFromSnapshot(previous, true);
+  }
+
+  redo(): void {
+    if (this.historyFuture.length === 0) return;
+    
+    // Save current state to past before redoing
+    const current = this.getSnapshot();
+    this.historyPast.push(current);
+    
+    const next = this.historyFuture.pop()!;
+    this.loadFromSnapshot(next, true);
+  }
+
+  getSnapshot(): LayoutSnapshot {
+    const pallets: LayoutPalletInfo[] = [];
+    this.pallets.forEach((bundle, id) => {
+      pallets.push({
+        id,
+        preset: bundle.preset,
+        x: bundle.mesh.position.x,
+        y: bundle.mesh.position.y,
+        z: bundle.mesh.position.z,
+        rotationY: bundle.mesh.rotation.y
+      });
+    });
+    return { id: Date.now().toString(), timestamp: Date.now(), pallets };
+  }
+
+  loadFromSnapshot(snapshot: LayoutSnapshot, fromHistory = false): void {
+    this.isHistoryAction = true;
+    this.resetLoad();
+    
+    for (const p of snapshot.pallets) {
+      // Re-assign pallet numbers to match
+      const palletNum = ++this.palletCounter;
+      this.palletNumbers.set(p.id, palletNum);
+      
+      const rotated = p.rotationY > 0.1;
+      const bundle = this.buildPalletMesh(p.preset, rotated, p.preset.color, p.id);
+      const mesh = bundle.mesh;
+      mesh.position.set(p.x, p.y, p.z);
+      mesh.rotation.y = p.rotationY;
+      
+      this.scene.add(mesh);
+      this.pallets.set(p.id, bundle);
+    }
+    
+    this.emitPalletList();
+    this.isHistoryAction = false;
+    
+    if (!fromHistory) {
+      // If loaded from menu, we should treat it as a new action for history
+      this.pushHistory();
+    } else {
+      // Just emit for auto-save
+      this.layoutChanged.emit(snapshot);
+    }
+  }
+
   /** Spawn a pallet from a saved preset (called by parent Dashboard) */
   spawnPalletFromPreset(preset: CargoPreset): void {
     if (this.autoOptimizeAll) {
@@ -168,66 +285,40 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     }
 
     const id = 'pallet-' + crypto.randomUUID().substring(0, 8);
+    // ponytail: assign sequential number and random color per spawn
+    const palletNum = ++this.palletCounter;
+    this.palletNumbers.set(id, palletNum);
+    const spawnColor = this.randomHslColor();
 
-    // Mesh
-    const geo = new THREE.BoxGeometry(preset.width, preset.height, preset.length);
-    const mat = new THREE.MeshPhongMaterial({
-      color: new THREE.Color(preset.color),
-      flatShading: true,
-      shininess: 30,
-      transparent: true,
-      opacity: 0.88,
-    });
-
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    mesh.userData = {
-      id,
-      name: preset.name,
-      length: preset.length,
-      width: preset.width,
-      height: preset.height,
-      stackable: preset.stackable,
-      color: preset.color,
-    };
-
-    // Wireframe edges
-    const edgesGeo = new THREE.EdgesGeometry(geo);
-    const edgesMat = new THREE.LineBasicMaterial({ color: this.EDGE_COLOR_DEFAULT, linewidth: 1 });
-    const edges = new THREE.LineSegments(edgesGeo, edgesMat);
-    mesh.add(edges); // child of mesh so it moves together
-
-    // Try to find an optimal spot
+    // Try to find an optimal spot FIRST, to avoid creating garbage meshes if it fails
     const spot = this.findOptimalSpot(preset);
 
     if (!spot) {
       this.spawnBlocked.emit(preset.name);
-      mesh.geometry.dispose();
-      (mesh.material as THREE.Material).dispose();
       return;
     }
 
+    const bundle = this.buildPalletMesh(preset, spot.rotated, spawnColor, id);
+    const mesh = bundle.mesh;
+    
     mesh.position.set(spot.x, spot.y, spot.z);
     if (spot.rotated) {
       mesh.rotation.y = Math.PI / 2;
-      mesh.userData['width'] = preset.length;
-      mesh.userData['length'] = preset.width;
     }
 
     this.scene.add(mesh);
-    const bundle: PalletMeshBundle = { mesh, edges, preset };
     this.pallets.set(id, bundle);
 
     // Auto-select the newly spawned pallet
     this.selectPalletById(id);
+    this.emitPalletList();
+    this.pushHistory();
   }
 
-  private findOptimalSpot(preset: CargoPreset): { x: number, y: number, z: number, rotated: boolean } | null {
-    const occupied: { x: number; z: number; y: number; w: number; l: number; h: number; stackable: boolean }[] = [];
-    this.pallets.forEach(bundle => {
+  private findOptimalSpot(preset: CargoPreset, customOccupied?: any[]): { x: number, y: number, z: number, rotated: boolean } | null {
+    const occupied = customOccupied || Array.from(this.pallets.values()).map(bundle => {
       const m = bundle.mesh;
-      occupied.push({
+      return {
         x: m.position.x,
         y: m.position.y,
         z: m.position.z,
@@ -235,12 +326,25 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
         l: m.userData['length'] || 1.2,
         h: m.userData['height'] || 1.6,
         stackable: m.userData['stackable'] || false,
-      });
+      };
     });
 
     const halfW = this.trailerW / 2;
     const halfL = this.trailerL / 2;
-    const step = 0.05;
+
+    const xCoords = new Set<number>([-halfW]);
+    const yCoords = new Set<number>([0]);
+    const zCoords = new Set<number>([-halfL]);
+
+    for (const occ of occupied) {
+      xCoords.add(occ.x + occ.w / 2);
+      if (occ.stackable) yCoords.add(occ.y + occ.h / 2);
+      zCoords.add(occ.z + occ.l / 2);
+    }
+
+    const sortedY = Array.from(yCoords).sort((a, b) => a - b);
+    const sortedZ = Array.from(zCoords).sort((a, b) => a - b);
+    const sortedX = Array.from(xCoords).sort((a, b) => a - b);
 
     const orientations = [
       { w: preset.width, l: preset.length },
@@ -249,62 +353,52 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
 
     const ph = preset.height;
 
-    // --- FLOOR LAYER ---
-    for (const orient of orientations) {
-      const pw = orient.w;
-      const pl = orient.l;
+    for (const y of sortedY) {
+      for (const z of sortedZ) {
+        for (const x of sortedX) {
+          for (const orient of orientations) {
+            const pw = orient.w;
+            const pl = orient.l;
 
-      for (let z = -halfL + pl / 2; z <= halfL - pl / 2 + step / 2; z += step) {
-        for (let x = -halfW + pw / 2; x <= halfW - pw / 2 + step / 2; x += step) {
-          const y = ph / 2;
-          let overlaps = false;
-          for (const occ of occupied) {
-            const xOv = Math.abs(x - occ.x) < (pw / 2 + occ.w / 2 - 0.005);
-            const zOv = Math.abs(z - occ.z) < (pl / 2 + occ.l / 2 - 0.005);
-            const yOv = Math.abs(y - occ.y) < (ph / 2 + occ.h / 2 - 0.005);
-            if (xOv && zOv && yOv) {
-              overlaps = true;
-              break;
+            const cx = x + pw / 2;
+            const cy = y + ph / 2;
+            const cz = z + pl / 2;
+
+            if (cx - pw / 2 < -halfW - 0.01 || cx + pw / 2 > halfW + 0.01) continue;
+            if (cz - pl / 2 < -halfL - 0.01 || cz + pl / 2 > halfL + 0.01) continue;
+            if (cy + ph / 2 > this.trailerH + 0.01) continue;
+
+            let overlaps = false;
+            for (const occ of occupied) {
+              const xOv = Math.abs(cx - occ.x) < (pw / 2 + occ.w / 2 - 0.005);
+              const zOv = Math.abs(cz - occ.z) < (pl / 2 + occ.l / 2 - 0.005);
+              const yOv = Math.abs(cy - occ.y) < (ph / 2 + occ.h / 2 - 0.005);
+              if (xOv && zOv && yOv) {
+                overlaps = true;
+                break;
+              }
+            }
+
+            if (!overlaps) {
+              let supported = y === 0;
+              if (!supported) {
+                for (const occ of occupied) {
+                  if (occ.stackable && Math.abs((occ.y + occ.h / 2) - y) < 0.01) {
+                    const xOv = Math.abs(cx - occ.x) < (pw / 2 + occ.w / 2 - 0.005);
+                    const zOv = Math.abs(cz - occ.z) < (pl / 2 + occ.l / 2 - 0.005);
+                    if (xOv && zOv) {
+                      supported = true;
+                      break;
+                    }
+                  }
+                }
+              }
+
+              if (supported) {
+                return { x: cx, y: cy, z: cz, rotated: orient.w !== preset.width };
+              }
             }
           }
-
-          if (!overlaps && y + ph / 2 <= this.trailerH + 0.01) {
-            return { x, y, z, rotated: orient.w !== preset.width };
-          }
-        }
-      }
-    }
-
-    // --- STACKING LAYER ---
-    for (const orient of orientations) {
-      const pw = orient.w;
-      const pl = orient.l;
-
-      for (const base of occupied) {
-        if (!base.stackable) continue;
-
-        const stackY = base.y + base.h / 2 + ph / 2;
-        if (stackY + ph / 2 > this.trailerH + 0.01) continue;
-
-        const x = base.x;
-        const z = base.z;
-
-        if (x - pw / 2 < -halfW - 0.01 || x + pw / 2 > halfW + 0.01) continue;
-        if (z - pl / 2 < -halfL - 0.01 || z + pl / 2 > halfL + 0.01) continue;
-
-        let overlaps = false;
-        for (const occ of occupied) {
-          const xOv = Math.abs(x - occ.x) < (pw / 2 + occ.w / 2 - 0.005);
-          const zOv = Math.abs(z - occ.z) < (pl / 2 + occ.l / 2 - 0.005);
-          const yOv = Math.abs(stackY - occ.y) < (ph / 2 + occ.h / 2 - 0.005);
-          if (xOv && zOv && yOv) {
-            overlaps = true;
-            break;
-          }
-        }
-
-        if (!overlaps) {
-          return { x, y: stackY, z, rotated: orient.w !== preset.width };
         }
       }
     }
@@ -340,7 +434,19 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
       return false;
     }
 
+    this.pushHistory();
     return true;
+  }
+
+  private disposeBundle(bundle: PalletMeshBundle): void {
+    this.scene.remove(bundle.mesh);
+    bundle.mesh.geometry.dispose();
+    bundle.edges.geometry.dispose();
+    if (Array.isArray(bundle.mesh.material)) {
+      bundle.mesh.material.forEach(m => m.dispose());
+    } else {
+      bundle.mesh.material.dispose();
+    }
   }
 
   /** Delete the currently selected pallet */
@@ -348,18 +454,13 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     if (!this.selectedPalletId) return;
     const bundle = this.pallets.get(this.selectedPalletId);
     if (bundle) {
-      this.scene.remove(bundle.mesh);
-      bundle.mesh.geometry.dispose();
-      bundle.edges.geometry.dispose();
-      if (Array.isArray(bundle.mesh.material)) {
-        bundle.mesh.material.forEach(m => m.dispose());
-      } else {
-        bundle.mesh.material.dispose();
-      }
+      this.disposeBundle(bundle);
       this.pallets.delete(this.selectedPalletId);
     }
     this.selectedPalletId = null;
     this.palletSelected.emit(null);
+    this.emitPalletList();
+    this.pushHistory();
   }
 
   /** Clear all cargo */
@@ -369,18 +470,17 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     this.isDragging = false;
 
     this.pallets.forEach(bundle => {
-      this.scene.remove(bundle.mesh);
-      bundle.mesh.geometry.dispose();
-      bundle.edges.geometry.dispose();
-      if (Array.isArray(bundle.mesh.material)) {
-        bundle.mesh.material.forEach(m => m.dispose());
-      } else {
-        bundle.mesh.material.dispose();
-      }
+      this.disposeBundle(bundle);
     });
 
     this.pallets.clear();
+    this.palletNumbers.clear();
+    this.palletCounter = 0;
     this.palletSelected.emit(null);
+    this.emitPalletList();
+    if (!this.isHistoryAction) {
+      this.pushHistory();
+    }
   }
 
   // ─── INIT ─────────────────────────────────────────────────
@@ -709,7 +809,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
 
   // ─── SELECTION ────────────────────────────────────────────
 
-  private selectPalletById(id: string | null): void {
+  selectPalletById(id: string | null): void {
     // Deselect previous
     if (this.selectedPalletId) {
       const prev = this.pallets.get(this.selectedPalletId);
@@ -894,6 +994,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
       if (this.selectedPalletId) {
         this.emitRotateButtonForSelected();
       }
+      this.pushHistory();
     } else if (dist < 5) {
       // Clicked on empty space — deselect
       this.selectPalletById(null);
@@ -1071,10 +1172,8 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
   /** Auto-load pallets using a bottom-left-fill bin packing algorithm.
    *  Returns { placed: number, total: number } for UI feedback. */
   autoLoadPallets(items: { preset: CargoPreset; quantity: number }[]): { placed: number; total: number } {
-    // Clear existing cargo
     this.resetLoad();
 
-    // Flatten and sort by footprint area (largest first)
     const allPallets: CargoPreset[] = [];
     for (const item of items) {
       for (let i = 0; i < item.quantity; i++) {
@@ -1086,110 +1185,51 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     const total = allPallets.length;
     let placed = 0;
 
-    // Track occupied positions as simple AABB list
     const occupied: { x: number; z: number; y: number; w: number; l: number; h: number; stackable: boolean }[] = [];
 
-    const halfW = this.trailerW / 2;
-    const halfL = this.trailerL / 2;
-    const step = 0.05;
-
     for (const preset of allPallets) {
-      let didPlace = false;
-
-      const orientations = [
-        { w: preset.width, l: preset.length },
-        { w: preset.length, l: preset.width },
-      ];
-
-      // --- FLOOR LAYER ---
-      for (const orient of orientations) {
-        if (didPlace) break;
-        const pw = orient.w;
-        const pl = orient.l;
-        const ph = preset.height;
-
-        for (let z = -halfL + pl / 2; z <= halfL - pl / 2 + step / 2; z += step) {
-          if (didPlace) break;
-          for (let x = -halfW + pw / 2; x <= halfW - pw / 2 + step / 2; x += step) {
-            const y = ph / 2;
-
-            let overlaps = false;
-            for (const occ of occupied) {
-              const xOv = Math.abs(x - occ.x) < (pw / 2 + occ.w / 2 - 0.005);
-              const zOv = Math.abs(z - occ.z) < (pl / 2 + occ.l / 2 - 0.005);
-              const yOv = Math.abs(y - occ.y) < (ph / 2 + occ.h / 2 - 0.005);
-              if (xOv && zOv && yOv) {
-                overlaps = true;
-                break;
-              }
-            }
-
-            if (!overlaps && y + ph / 2 <= this.trailerH + 0.01) {
-              const isRotated = orient.w !== preset.width;
-              this.spawnPalletAt(preset, x, y, z, isRotated);
-              occupied.push({ x, z, y, w: pw, l: pl, h: ph, stackable: preset.stackable });
-              placed++;
-              didPlace = true;
-              break;
-            }
-          }
-        }
-      }
-
-      // --- STACKING LAYER ---
-      if (!didPlace) {
-        for (const orient of orientations) {
-          if (didPlace) break;
-          const pw = orient.w;
-          const pl = orient.l;
-          const ph = preset.height;
-
-          for (const base of occupied) {
-            if (didPlace) break;
-            if (!base.stackable) continue;
-
-            const stackY = base.y + base.h / 2 + ph / 2;
-            if (stackY + ph / 2 > this.trailerH + 0.01) continue;
-
-            const x = base.x;
-            const z = base.z;
-
-            if (x - pw / 2 < -halfW - 0.01 || x + pw / 2 > halfW + 0.01) continue;
-            if (z - pl / 2 < -halfL - 0.01 || z + pl / 2 > halfL + 0.01) continue;
-
-            let overlaps = false;
-            for (const occ of occupied) {
-              const xOv = Math.abs(x - occ.x) < (pw / 2 + occ.w / 2 - 0.005);
-              const zOv = Math.abs(z - occ.z) < (pl / 2 + occ.l / 2 - 0.005);
-              const yOv = Math.abs(stackY - occ.y) < (ph / 2 + occ.h / 2 - 0.005);
-              if (xOv && zOv && yOv) {
-                overlaps = true;
-                break;
-              }
-            }
-
-            if (!overlaps) {
-              const isRotated = orient.w !== preset.width;
-              this.spawnPalletAt(preset, x, stackY, z, isRotated);
-              occupied.push({ x, z, y: stackY, w: pw, l: pl, h: ph, stackable: preset.stackable });
-              placed++;
-              didPlace = true;
-            }
-          }
-        }
+      const spot = this.findOptimalSpot(preset, occupied);
+      if (spot) {
+        this.spawnPalletAt(preset, spot.x, spot.y, spot.z, spot.rotated);
+        occupied.push({
+          x: spot.x,
+          y: spot.y,
+          z: spot.z,
+          w: spot.rotated ? preset.length : preset.width,
+          l: spot.rotated ? preset.width : preset.length,
+          h: preset.height,
+          stackable: preset.stackable
+        });
+        placed++;
       }
     }
 
+    this.emitPalletList();
+    this.pushHistory();
     return { placed, total };
   }
 
-  /** Spawn a pallet at an exact position (used by auto-loader) */
   private spawnPalletAt(preset: CargoPreset, x: number, y: number, z: number, rotated: boolean): void {
     const id = 'pallet-' + crypto.randomUUID().substring(0, 8);
+    const palletNum = ++this.palletCounter;
+    this.palletNumbers.set(id, palletNum);
+    const spawnColor = this.randomHslColor();
 
+    const bundle = this.buildPalletMesh(preset, rotated, spawnColor, id);
+    const mesh = bundle.mesh;
+    mesh.position.set(x, y, z);
+    if (rotated) {
+      mesh.rotation.y = Math.PI / 2;
+    }
+
+    this.scene.add(mesh);
+    this.pallets.set(id, bundle);
+  }
+
+  private buildPalletMesh(preset: CargoPreset, rotated: boolean, color: string, id: string): PalletMeshBundle {
     const geo = new THREE.BoxGeometry(preset.width, preset.height, preset.length);
     const mat = new THREE.MeshPhongMaterial({
-      color: new THREE.Color(preset.color),
+      color: new THREE.Color(color),
       flatShading: true,
       shininess: 30,
       transparent: true,
@@ -1206,7 +1246,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
       width: rotated ? preset.length : preset.width,
       height: preset.height,
       stackable: preset.stackable,
-      color: preset.color,
+      color: color,
     };
 
     const edgesGeo = new THREE.EdgesGeometry(geo);
@@ -1214,12 +1254,90 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     const edges = new THREE.LineSegments(edgesGeo, edgesMat);
     mesh.add(edges);
 
-    mesh.position.set(x, y, z);
-    if (rotated) {
-      mesh.rotation.y = Math.PI / 2;
-    }
+    return { mesh, edges, preset: { ...preset, color } };
+  }
 
-    this.scene.add(mesh);
-    this.pallets.set(id, { mesh, edges, preset });
+  // ─── PUBLIC API: Pallet List & Editing ────────────────
+
+  /** Build a flat list of all pallets for the sidebar */
+  getPalletList(): PalletListItem[] {
+    const list: PalletListItem[] = [];
+    this.pallets.forEach((bundle, id) => {
+      list.push({
+        id,
+        number: this.palletNumbers.get(id) ?? 0,
+        name: bundle.preset.name,
+        length: bundle.preset.length,
+        width: bundle.preset.width,
+        height: bundle.preset.height,
+        color: bundle.preset.color,
+        stackable: bundle.preset.stackable,
+      });
+    });
+    // ponytail: sort by number for stable display order
+    list.sort((a, b) => a.number - b.number);
+    return list;
+  }
+
+  /** Update a pallet's color by id */
+  updatePalletColor(id: string, color: string): void {
+    const bundle = this.pallets.get(id);
+    if (!bundle) return;
+    bundle.preset.color = color;
+    bundle.mesh.userData['color'] = color;
+    (bundle.mesh.material as THREE.MeshPhongMaterial).color.set(color);
+    this.emitPalletList();
+    this.pushHistory();
+  }
+
+  /** Update a specific pallet's dimensions by id */
+  updatePalletDimensionsById(id: string, length: number, width: number, height: number): void {
+    const bundle = this.pallets.get(id);
+    if (!bundle) return;
+
+    bundle.preset.length = length;
+    bundle.preset.width = width;
+    bundle.preset.height = height;
+
+    bundle.mesh.geometry.dispose();
+    const isRotated = bundle.mesh.rotation.y > 0.1;
+    const effectiveW = isRotated ? length : width;
+    const effectiveL = isRotated ? width : length;
+    bundle.mesh.geometry = new THREE.BoxGeometry(effectiveW, height, effectiveL);
+
+    bundle.edges.geometry.dispose();
+    bundle.edges.geometry = new THREE.EdgesGeometry(bundle.mesh.geometry);
+
+    bundle.mesh.userData['length'] = effectiveL;
+    bundle.mesh.userData['width'] = effectiveW;
+    bundle.mesh.userData['height'] = height;
+
+    this.clampObjectToTrailer(bundle.mesh);
+    this.emitPalletList();
+    this.pushHistory();
+  }
+
+  /** Delete a pallet by id (for sidebar delete button) */
+  deletePalletById(id: string): void {
+    const bundle = this.pallets.get(id);
+    if (!bundle) return;
+    this.disposeBundle(bundle);
+    this.pallets.delete(id);
+    if (this.selectedPalletId === id) {
+      this.selectedPalletId = null;
+      this.palletSelected.emit(null);
+    }
+    this.emitPalletList();
+    this.pushHistory();
+  }
+
+  private emitPalletList(): void {
+    this.palletListChanged.emit(this.getPalletList());
+  }
+
+  /** ponytail: random saturated color via HSL for visual variety */
+  private randomHslColor(): string {
+    const h = Math.floor(Math.random() * 360);
+    return `hsl(${h}, 70%, 55%)`;
   }
 }
