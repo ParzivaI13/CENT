@@ -394,7 +394,7 @@
    ═══════════════════════════════════════════════ */
 .horizontal-dropdown-panel {
   position: absolute;
-  top: 92px;
+  top: calc(100% + 14px);
   height: 94px;
   background: var(--bg-card-strong);
   backdrop-filter: var(--glass-blur);
@@ -407,7 +407,7 @@
   opacity: 0;
   pointer-events: none !important;
   visibility: hidden;
-  transform: translateY(-6px);
+  transform: translateX(-50%) translateY(-6px);
   transition: opacity var(--transition-normal), transform var(--transition-normal), visibility var(--transition-normal) cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
   z-index: 90;
@@ -415,22 +415,20 @@
 
 .trailers-dropdown {
   left: 50%;
-  transform: translateX(-60%) translateY(-6px);
   width: 480px;
 }
 
 .trailers-dropdown.show {
-  transform: translateX(-60%) translateY(0);
+  transform: translateX(-50%) translateY(0);
 }
 
 .pallets-dropdown {
   left: 50%;
-  transform: translateX(-20%) translateY(-6px);
   width: 480px;
 }
 
 .pallets-dropdown.show {
-  transform: translateX(-20%) translateY(0);
+  transform: translateX(-50%) translateY(0);
 }
 
 .horizontal-dropdown-panel.show {
@@ -1471,7 +1469,8 @@
 
   /* Dropdowns become full-width */
   .horizontal-dropdown-panel {
-    top: auto;
+    position: fixed !important;
+    top: auto !important;
     bottom: 80px;
     left: 10px !important;
     right: 10px !important;
