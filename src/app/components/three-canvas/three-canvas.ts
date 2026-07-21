@@ -64,6 +64,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
   private historyPast: LayoutSnapshot[] = [];
   private historyFuture: LayoutSnapshot[] = [];
   private isHistoryAction = false;
+  private lastSnapshot: LayoutSnapshot | null = null;
 
   /** Returns whichever camera is currently active based on mode */
   private get camera(): THREE.PerspectiveCamera | THREE.OrthographicCamera {
@@ -118,6 +119,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     this.createTrailerEnvironment();
     this.handleModeChange();
     this.animate();
+    this.lastSnapshot = this.getSnapshot();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -152,33 +154,41 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
 
   // ─── PUBLIC API ───────────────────────────────────────────
 
-  /** Save current state to history and emit for auto-save */
+  /** Save previous state to history and capture current state.
+   *  Always call AFTER the mutation — pushes the pre-mutation snapshot
+   *  (stored in lastSnapshot) then records the new current state. */
   pushHistory(): void {
     if (this.isHistoryAction) return;
-    
-    const pallets: LayoutPalletInfo[] = [];
-    this.pallets.forEach((bundle, id) => {
-      pallets.push({
-        id,
-        preset: bundle.preset,
-        x: bundle.mesh.position.x,
-        y: bundle.mesh.position.y,
-        z: bundle.mesh.position.z,
-        rotationY: bundle.mesh.rotation.y
-      });
-    });
 
-    const snapshot: LayoutSnapshot = {
-      id: Date.now().toString(),
-      timestamp: Date.now(),
-      pallets
-    };
+    const current = this.getSnapshot();
 
-    this.historyPast.push(snapshot);
-    if (this.historyPast.length > 50) this.historyPast.shift(); // Limit history to 50
-    this.historyFuture = []; // Clear future on new action
-    
-    this.layoutChanged.emit(snapshot);
+    // ponytail: skip if nothing actually changed (e.g. click without drag)
+    if (this.lastSnapshot && this.snapshotsEqual(this.lastSnapshot, current)) {
+      return;
+    }
+
+    if (this.lastSnapshot) {
+      this.historyPast.push(this.lastSnapshot);
+      if (this.historyPast.length > 50) this.historyPast.shift();
+      this.historyFuture = [];
+    }
+
+    this.lastSnapshot = current;
+    this.layoutChanged.emit(current);
+  }
+
+  /** Compare two snapshots for equality (position, rotation, dimensions, color) */
+  private snapshotsEqual(a: LayoutSnapshot, b: LayoutSnapshot): boolean {
+    if (a.pallets.length !== b.pallets.length) return false;
+    for (let i = 0; i < a.pallets.length; i++) {
+      const pa = a.pallets[i], pb = b.pallets[i];
+      if (pa.id !== pb.id) return false;
+      if (pa.x !== pb.x || pa.y !== pb.y || pa.z !== pb.z) return false;
+      if (pa.rotationY !== pb.rotationY) return false;
+      if (pa.preset.color !== pb.preset.color) return false;
+      if (pa.preset.length !== pb.preset.length || pa.preset.width !== pb.preset.width || pa.preset.height !== pb.preset.height) return false;
+    }
+    return true;
   }
 
   undo(): void {
@@ -190,6 +200,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     
     const previous = this.historyPast.pop()!;
     this.loadFromSnapshot(previous, true);
+    this.lastSnapshot = this.getSnapshot();
   }
 
   redo(): void {
@@ -201,6 +212,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     
     const next = this.historyFuture.pop()!;
     this.loadFromSnapshot(next, true);
+    this.lastSnapshot = this.getSnapshot();
   }
 
   getSnapshot(): LayoutSnapshot {
