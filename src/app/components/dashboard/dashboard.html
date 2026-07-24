@@ -226,13 +226,6 @@
         </div>
 
         <div class="form-grid-secondary">
-          <div class="form-group-item">
-            <label>{{ i18n.t('editor.customColor') }}</label>
-            <div class="modal-color-picker-row">
-              <input type="color" [(ngModel)]="customPalletColor">
-              <span class="hex-badge-text">{{ customPalletColor.toUpperCase() }}</span>
-            </div>
-          </div>
           <div class="form-group-item-checkbox">
             <label class="modal-checkbox-container">
               <input type="checkbox" [(ngModel)]="customPalletStackable">
@@ -298,7 +291,7 @@
 
     <!-- Right Sidebar: Pallet List -->
     @if (palletList.length > 0) {
-      <aside class="floating-right-sidebar" (click)="$event.stopPropagation()">
+      <aside class="floating-right-sidebar" [class.show-mobile]="showPalletListMobile" (click)="$event.stopPropagation()">
         <div class="sidebar-panel-header">
           <h4>{{ i18n.t('sidebar.palletList') }} ({{ palletList.length }})</h4>
         </div>
@@ -335,6 +328,17 @@
           }
         </div>
       </aside>
+    }
+
+    <!-- Pallet List Toggle FAB for Mobile -->
+    @if (palletList.length > 0) {
+      <button class="btn-pallet-list-fab" (click)="togglePalletListMobile()" title="Scene Pallets">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="auto-load-icon">
+          <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+        </svg>
+        <span class="pallet-fab-badge">{{ palletList.length }}</span>
+      </button>
     }
 
     <!-- Sidebar Toggle FAB for Mobile (bottom-left circular button) -->
@@ -518,13 +522,6 @@
               </div>
 
               <div class="form-grid-secondary">
-                <div class="form-group-item">
-                  <label>{{ i18n.t('dashboard.modal.meshColor') }}</label>
-                  <div class="modal-color-picker-row">
-                    <input type="color" name="cCol" [(ngModel)]="newCargoColor">
-                    <span class="hex-badge-text">{{ newCargoColor.toUpperCase() }}</span>
-                  </div>
-                </div>
                 <div class="form-group-item-checkbox">
                   <label class="modal-checkbox-container">
                     <input type="checkbox" name="cStack" [(ngModel)]="cargoStackable">

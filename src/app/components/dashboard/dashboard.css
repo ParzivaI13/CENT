@@ -1556,7 +1556,7 @@
     pointer-events: auto;
   }
 
-  /* Right sidebar on mobile: full width bottom sheet */
+  /* Right sidebar on mobile: hidden by default, toggle via FAB */
   .floating-right-sidebar {
     top: auto;
     bottom: 80px;
@@ -1566,6 +1566,11 @@
     max-height: 40vh;
     padding: 14px;
     border-radius: 14px;
+    display: none;
+  }
+
+  .floating-right-sidebar.show-mobile {
+    display: flex;
   }
 
   .right-sidebar-scroll {
@@ -1733,8 +1738,71 @@
 
 @media (max-width: 768px) {
   .history-actions-bar {
-    left: 20px;
-    top: 150px;
+    left: 50%;
+    top: auto;
+    bottom: 80px;
+    transform: translateX(-50%);
   }
 }
 
+/* ═══════════════════════════════════════════════
+   Pallet List Toggle FAB (mobile only)
+   ═══════════════════════════════════════════════ */
+.btn-pallet-list-fab {
+  display: none;
+  position: absolute;
+  bottom: 28px;
+  right: 96px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 2px solid var(--border-subtle);
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  z-index: 80;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+  transition: all var(--transition-normal);
+}
+
+.btn-pallet-list-fab:active {
+  transform: scale(0.95);
+}
+
+.btn-pallet-list-fab .auto-load-icon {
+  color: var(--text-primary);
+  width: 20px;
+  height: 20px;
+}
+
+.pallet-fab-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+@media (max-width: 768px) {
+  .btn-pallet-list-fab {
+    display: flex;
+    bottom: 16px;
+    right: 76px;
+    width: 48px;
+    height: 48px;
+  }
+}

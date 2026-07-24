@@ -78,6 +78,13 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
   private floorMesh!: THREE.Mesh;
   private gridHelper!: THREE.GridHelper;
 
+  // ponytail: ground-plane progress bar (right side of trailer)
+  private progressGroup = new THREE.Group();
+  private progressFilled!: THREE.Mesh;
+  private progressRemaining!: THREE.Mesh;
+  private progressFilledLabel!: THREE.Sprite;
+  private progressRemainingLabel!: THREE.Sprite;
+
   // Pallets
   private pallets: Map<string, PalletMeshBundle> = new Map();
 
@@ -117,6 +124,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
   ngAfterViewInit(): void {
     this.initThree();
     this.createTrailerEnvironment();
+    this.createProgressBar();
     this.handleModeChange();
     this.animate();
     this.lastSnapshot = this.getSnapshot();
@@ -250,6 +258,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     }
     
     this.emitPalletList();
+    this.updateProgressBar();
     this.isHistoryAction = false;
     
     if (!fromHistory) {
@@ -325,6 +334,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     this.selectPalletById(id);
     this.emitPalletList();
     this.pushHistory();
+    this.updateProgressBar();
   }
 
   private findOptimalSpot(preset: CargoPreset, customOccupied?: any[]): { x: number, y: number, z: number, rotated: boolean } | null {
@@ -447,6 +457,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     }
 
     this.pushHistory();
+    this.updateProgressBar();
     return true;
   }
 
@@ -473,6 +484,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     this.palletSelected.emit(null);
     this.emitPalletList();
     this.pushHistory();
+    this.updateProgressBar();
   }
 
   /** Clear all cargo */
@@ -493,6 +505,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     if (!this.isHistoryAction) {
       this.pushHistory();
     }
+    this.updateProgressBar();
   }
 
   // ─── INIT ─────────────────────────────────────────────────
@@ -587,6 +600,9 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     this.gridHelper = new THREE.GridHelper(30, 30, gridMajor, gridMinor);
     this.gridHelper.position.y = -0.01;
     this.scene.add(this.gridHelper);
+
+    // ponytail: sync progress bar colors with theme
+    this.updateProgressBar();
   }
 
   private createTrailerEnvironment(): void {
@@ -665,6 +681,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     this.floorMesh.geometry.dispose();
 
     this.createTrailerEnvironment();
+    this.createProgressBar();
     this.handleModeChange();
   }
 
@@ -688,6 +705,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     this.floorMesh.geometry.dispose();
 
     this.createTrailerEnvironment();
+    this.createProgressBar();
     if (this.activeMode === '2d') {
       this.updateOrthoFrustum();
     }
@@ -950,6 +968,8 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
         this.applyDiscrete3DPhysicsStacking(mesh, mesh.position.y);
       }
       this.clampObjectToTrailer(mesh);
+      // ponytail: live progress update during drag
+      this.updateProgressBar();
     }
 
     // Dismiss edge-hover while dragging
@@ -1007,6 +1027,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
         this.emitRotateButtonForSelected();
       }
       this.pushHistory();
+      this.updateProgressBar();
     } else if (dist < 5) {
       // Clicked on empty space — deselect
       this.selectPalletById(null);
@@ -1218,6 +1239,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
 
     this.emitPalletList();
     this.pushHistory();
+    this.updateProgressBar();
     return { placed, total };
   }
 
@@ -1236,6 +1258,167 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
 
     this.scene.add(mesh);
     this.pallets.set(id, bundle);
+  }
+
+  // ─── GROUND PROGRESS BAR ─────────────────────────────
+
+  /** ponytail: build a text sprite from canvas — reused for both labels */
+  private makeTextSprite(text: string, color: string): THREE.Sprite {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 512, 128);
+    ctx.font = 'bold 64px Inter, Arial, sans-serif';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 256, 64);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(2.0, 0.5, 1);
+    return sprite;
+  }
+
+  /** Update sprite text in-place by repainting its canvas texture */
+  private updateSpriteText(sprite: THREE.Sprite, text: string, color: string): void {
+    const mat = sprite.material as THREE.SpriteMaterial;
+    const tex = mat.map!;
+    const canvas = tex.image as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, 512, 128);
+    ctx.font = 'bold 64px Inter, Arial, sans-serif';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 256, 64);
+    tex.needsUpdate = true;
+  }
+
+  /** Create the progress bar group — called after trailer environment is built */
+  private createProgressBar(): void {
+    // Remove old if exists
+    if (this.progressGroup.parent) {
+      this.scene.remove(this.progressGroup);
+      this.progressGroup.traverse(child => {
+        if (child instanceof THREE.Mesh || child instanceof THREE.Sprite) {
+          child.geometry?.dispose();
+          const m = child.material;
+          if (Array.isArray(m)) m.forEach(mat => mat.dispose());
+          else m.dispose();
+        }
+      });
+    }
+    this.progressGroup = new THREE.Group();
+
+    const barHeight = 0.25;
+
+    // Filled segment (blue — same as trailer outline)
+    const filledGeo = new THREE.PlaneGeometry(barHeight, 1);
+    const filledMat = new THREE.MeshBasicMaterial({
+      color: 0x3b82f6, transparent: true, opacity: 0.85, side: THREE.DoubleSide,
+    });
+    this.progressFilled = new THREE.Mesh(filledGeo, filledMat);
+    this.progressFilled.rotation.x = -Math.PI / 2;
+    this.progressGroup.add(this.progressFilled);
+
+    // Remaining segment (cab color)
+    const isDark = this.themeService.theme() === 'dark';
+    const cabHex = isDark ? 0x475569 : 0x94a3b8;
+    const remGeo = new THREE.PlaneGeometry(barHeight, 1);
+    const remMat = new THREE.MeshBasicMaterial({
+      color: cabHex, transparent: true, opacity: 0.85, side: THREE.DoubleSide,
+    });
+    this.progressRemaining = new THREE.Mesh(remGeo, remMat);
+    this.progressRemaining.rotation.x = -Math.PI / 2;
+    this.progressGroup.add(this.progressRemaining);
+
+    // Labels
+    this.progressFilledLabel = this.makeTextSprite('0.0m', '#3b82f6');
+    this.progressGroup.add(this.progressFilledLabel);
+
+    const cabCss = isDark ? '#94a3b8' : '#475569';
+    this.progressRemainingLabel = this.makeTextSprite(`${this.trailerL.toFixed(1)}m`, cabCss);
+    this.progressGroup.add(this.progressRemainingLabel);
+
+    this.progressGroup.position.y = 0.02;
+    this.scene.add(this.progressGroup);
+    this.updateProgressBar();
+  }
+
+  /** Recalculate and reposition the progress bar segments + labels */
+  private updateProgressBar(): void {
+    if (!this.progressFilled) return;
+
+    const halfL = this.trailerL / 2;
+    const barX = this.trailerW / 2 + 0.35; // right side offset
+    const barHeight = 0.25;
+
+    // ponytail: cargo packs from -halfL (back, far from cab) towards +halfL (front, near cab)
+    // Filled = span from back wall (-halfL) to the frontmost cargo edge (maxCargoZ)
+    let maxCargoZ = -halfL;
+    this.pallets.forEach(bundle => {
+      const m = bundle.mesh;
+      const l = m.userData['length'] || 1.2;
+      const cargoEnd = m.position.z + l / 2;
+      if (cargoEnd > maxCargoZ) maxCargoZ = cargoEnd;
+    });
+
+    const filledLength = this.pallets.size > 0 ? (maxCargoZ - (-halfL)) : 0;
+    const remainingLength = this.trailerL - filledLength;
+
+    // Filled bar
+    if (filledLength > 0.001) {
+      this.progressFilled.visible = true;
+      this.progressFilled.geometry.dispose();
+      this.progressFilled.geometry = new THREE.PlaneGeometry(barHeight, filledLength);
+      this.progressFilled.rotation.x = -Math.PI / 2;
+      const filledCenterZ = -halfL + filledLength / 2;
+      this.progressFilled.position.set(barX, 0, filledCenterZ);
+    } else {
+      this.progressFilled.visible = false;
+    }
+
+    // Remaining bar
+    if (remainingLength > 0.001) {
+      this.progressRemaining.visible = true;
+      this.progressRemaining.geometry.dispose();
+      this.progressRemaining.geometry = new THREE.PlaneGeometry(barHeight, remainingLength);
+      this.progressRemaining.rotation.x = -Math.PI / 2;
+      const remCenterZ = -halfL + filledLength + remainingLength / 2;
+      this.progressRemaining.position.set(barX, 0, remCenterZ);
+    } else {
+      this.progressRemaining.visible = false;
+    }
+
+    // Labels
+    const isDark = this.themeService.theme() === 'dark';
+    const labelY = 0.3;
+
+    if (filledLength > 0.001) {
+      this.progressFilledLabel.visible = true;
+      const filledCenterZ = -halfL + filledLength / 2;
+      this.progressFilledLabel.position.set(barX, labelY, filledCenterZ);
+      this.updateSpriteText(this.progressFilledLabel, `${filledLength.toFixed(1)}m`, '#3b82f6');
+    } else {
+      this.progressFilledLabel.visible = false;
+    }
+
+    if (remainingLength > 0.001) {
+      this.progressRemainingLabel.visible = true;
+      const remCenterZ = -halfL + filledLength + remainingLength / 2;
+      this.progressRemainingLabel.position.set(barX, labelY, remCenterZ);
+      const cabCss = isDark ? '#94a3b8' : '#64748b';
+      this.updateSpriteText(this.progressRemainingLabel, `${remainingLength.toFixed(1)}m`, cabCss);
+    } else {
+      this.progressRemainingLabel.visible = false;
+    }
+
+    // Update remaining color based on theme
+    const cabHex = isDark ? 0x475569 : 0x94a3b8;
+    (this.progressRemaining.material as THREE.MeshBasicMaterial).color.setHex(cabHex);
   }
 
   private buildPalletMesh(preset: CargoPreset, rotated: boolean, color: string, id: string): PalletMeshBundle {
@@ -1327,6 +1510,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     this.clampObjectToTrailer(bundle.mesh);
     this.emitPalletList();
     this.pushHistory();
+    this.updateProgressBar();
   }
 
   /** Delete a pallet by id (for sidebar delete button) */
@@ -1341,6 +1525,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     }
     this.emitPalletList();
     this.pushHistory();
+    this.updateProgressBar();
   }
 
   private emitPalletList(): void {

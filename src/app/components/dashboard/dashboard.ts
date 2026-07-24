@@ -45,6 +45,7 @@ export class Dashboard implements OnInit {
   showAutoLoadModal = false;
   showHistoryModal = false;
   showSidebarMobile = false;
+  showPalletListMobile = false;
 
   /** Active trailer */
   activeTrailer: TrailerPreset = {
@@ -78,7 +79,6 @@ export class Dashboard implements OnInit {
   newCargoL = 1.2;
   newCargoW = 1.0;
   newCargoH = 1.6;
-  newCargoColor = '#3b82f6';
   cargoStackable = false;
 
   /** Auto Optimize */
@@ -92,7 +92,6 @@ export class Dashboard implements OnInit {
   customPalletL = 1.2;
   customPalletW = 1.0;
   customPalletH = 1.6;
-  customPalletColor = '#ff0000';
   customPalletStackable = false;
 
   /** Auto-loadout */
@@ -323,7 +322,7 @@ export class Dashboard implements OnInit {
       length: l,
       width: w,
       height: h,
-      color: this.customPalletColor,
+      color: this.randomHslColor(),
       stackable: this.customPalletStackable,
     };
     
@@ -366,10 +365,15 @@ export class Dashboard implements OnInit {
     this.showAutoLoadModal = false;
     this.showHistoryModal = false;
     this.showSidebarMobile = false;
+    this.showPalletListMobile = false;
   }
 
   toggleSidebarMobile(): void {
     this.showSidebarMobile = !this.showSidebarMobile;
+  }
+
+  togglePalletListMobile(): void {
+    this.showPalletListMobile = !this.showPalletListMobile;
   }
 
   openAddTrailerModal(): void {
@@ -521,7 +525,6 @@ export class Dashboard implements OnInit {
     this.newCargoL = 1.2;
     this.newCargoW = 1.0;
     this.newCargoH = 1.6;
-    this.newCargoColor = '#3b82f6';
     this.cargoStackable = false;
   }
 
@@ -610,7 +613,7 @@ export class Dashboard implements OnInit {
       length: l,
       width: w,
       height: h,
-      color: this.newCargoColor,
+      color: this.randomHslColor(),
       stackable: this.cargoStackable,
     };
 
@@ -660,5 +663,11 @@ export class Dashboard implements OnInit {
 
   private generateId(prefix: string): string {
     return `${prefix}-${crypto.randomUUID().substring(0, 8)}`;
+  }
+
+  /** ponytail: random saturated color for visual variety */
+  private randomHslColor(): string {
+    const h = Math.floor(Math.random() * 360);
+    return `hsl(${h}, 70%, 55%)`;
   }
 }
