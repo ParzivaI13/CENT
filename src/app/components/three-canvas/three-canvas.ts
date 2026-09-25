@@ -115,6 +115,10 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
   private readonly EDGE_COLOR_DEFAULT = 0x888888;
   private readonly EDGE_COLOR_SELECTED = 0x00d4ff;
 
+  // Collision & Bounds constants
+  private readonly COLLISION_SKIN = 0.02; // 2cm skin prevents false collisions on adjacent/flush pallets
+  private readonly BOUNDS_TOLERANCE = 0.1; // 10cm tolerance prevents float rounding & clamped borders snapping back
+
   // Bound event handlers (for proper cleanup)
   private readonly boundOnResize = this.onWindowResize.bind(this);
   private readonly boundOnPointerDown = this.onPointerDown.bind(this);
@@ -436,9 +440,9 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
 
             let overlaps = false;
             for (const occ of occupied) {
-              const xOv = Math.abs(cx - occ.x) < (pw / 2 + occ.w / 2 - 0.005);
-              const zOv = Math.abs(cz - occ.z) < (pl / 2 + occ.l / 2 - 0.005);
-              const yOv = Math.abs(cy - occ.y) < (ph / 2 + occ.h / 2 - 0.005);
+              const xOv = Math.abs(cx - occ.x) < (pw / 2 + occ.w / 2 - this.COLLISION_SKIN);
+              const zOv = Math.abs(cz - occ.z) < (pl / 2 + occ.l / 2 - this.COLLISION_SKIN);
+              const yOv = Math.abs(cy - occ.y) < (ph / 2 + occ.h / 2 - this.COLLISION_SKIN);
               if (xOv && zOv && yOv) {
                 overlaps = true;
                 break;
@@ -998,12 +1002,9 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
       const l = mesh.userData['length'] || 1.2;
       const halfWidthLimit = this.trailerW / 2 - w / 2;
       const halfLengthLimit = this.trailerL / 2 - l / 2;
-      
-      // Enforce the 0.5m cabin gap
-      const frontLimit = halfLengthLimit - 0.5;
 
       const clampedX = Math.max(-halfWidthLimit, Math.min(halfWidthLimit, newPos.x));
-      const clampedZ = Math.max(-halfLengthLimit, Math.min(frontLimit, newPos.z));
+      const clampedZ = Math.max(-halfLengthLimit, Math.min(halfLengthLimit, newPos.z));
 
       // Test X axis using clamped position
       mesh.position.x = clampedX;
@@ -1044,33 +1045,9 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
         // This was a click, not a drag — selection already happened in pointerDown
         mesh.position.copy(this.previousPosition);
       } else {
-        // Real drag — snap to grid
-        mesh.position.x = Math.round(mesh.position.x * 10) / 10;
-        mesh.position.z = Math.round(mesh.position.z * 10) / 10;
-
-        // Snap to trailer wall if within one grid step (fixes Math.round asymmetry)
-        const snapW = mesh.userData['width'] || 1.0;
-        const snapL = mesh.userData['length'] || 1.2;
-        const wallX = this.trailerW / 2 - snapW / 2;
-        const wallZ = this.trailerL / 2 - snapL / 2;
-        if (Math.abs(mesh.position.x - wallX) < 0.1) mesh.position.x = wallX;
-        if (Math.abs(mesh.position.x + wallX) < 0.1) mesh.position.x = -wallX;
-        if (Math.abs(mesh.position.z - wallZ) < 0.1) mesh.position.z = wallZ;
-        if (Math.abs(mesh.position.z + wallZ) < 0.1) mesh.position.z = -wallZ;
-
-        if (this.activeMode === '2d') {
-          mesh.position.y = (mesh.userData['height'] || 1.6) / 2;
-        } else {
-          this.applyDiscrete3DPhysicsStacking(mesh, mesh.position.y);
-          mesh.position.y = Math.round(mesh.position.y * 10) / 10;
-        }
-
-        // Final overlap check
-        if (this.checkAABBOverlap(mesh) || this.isOutOfBounds(mesh)) {
-          mesh.position.copy(this.previousPosition);
-        }
-
-        this.clampObjectToTrailer(mesh);
+        // Real drag — snap cleanly to walls, neighbor pallets, or grid with collision resolution
+        const dragPos = mesh.position.clone();
+        this.snapAndResolveCollision(mesh, dragPos);
       }
 
       this.orbitControls.enabled = true;
@@ -1089,6 +1066,138 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
       this.selectPalletById(null);
       this.edgeHoverRotate.emit(null);
     }
+  }
+
+  /**
+   * Attempts to snap a mesh cleanly to nearby walls, neighbor pallets, or grid.
+   * If any snap introduces a collision, nudges to the nearest non-colliding spot
+   * or falls back to the valid pre-snap drag position instead of reverting all the way back.
+   */
+  private snapAndResolveCollision(mesh: THREE.Mesh, dragPos: THREE.Vector3): void {
+    const snapW = mesh.userData['width'] || 1.0;
+    const snapL = mesh.userData['length'] || 1.2;
+    const meshId = mesh.userData['id'];
+
+    const wallX = this.trailerW / 2 - snapW / 2;
+    const wallZ = this.trailerL / 2 - snapL / 2;
+
+    let candidateX = mesh.position.x;
+    let candidateZ = mesh.position.z;
+
+    // 1. Check flush snap to trailer wall (threshold: 10cm)
+    let snappedWallX = false;
+    if (Math.abs(candidateX - wallX) < 0.1) {
+      candidateX = wallX;
+      snappedWallX = true;
+    } else if (Math.abs(candidateX + wallX) < 0.1) {
+      candidateX = -wallX;
+      snappedWallX = true;
+    }
+
+    let snappedWallZ = false;
+    if (Math.abs(candidateZ - wallZ) < 0.1) {
+      candidateZ = wallZ;
+      snappedWallZ = true;
+    } else if (Math.abs(candidateZ + wallZ) < 0.1) {
+      candidateZ = -wallZ;
+      snappedWallZ = true;
+    }
+
+    // 2. Check flush snap to neighbor pallet edges (threshold: 8cm)
+    let snappedNeighborX = false;
+    let snappedNeighborZ = false;
+
+    this.pallets.forEach(bundle => {
+      if (bundle.mesh.userData['id'] === meshId) return;
+      const other = bundle.mesh;
+      const otherW = other.userData['width'] || 1.0;
+      const otherL = other.userData['length'] || 1.2;
+
+      // X snap: if pallets overlap or touch in Z
+      const zClose = Math.abs(candidateZ - other.position.z) < (snapL / 2 + otherL / 2 - 0.02);
+      if (zClose && !snappedWallX && !snappedNeighborX) {
+        const flushRight = other.position.x + otherW / 2 + snapW / 2;
+        const flushLeft = other.position.x - otherW / 2 - snapW / 2;
+        if (Math.abs(candidateX - flushRight) < 0.08) {
+          candidateX = flushRight;
+          snappedNeighborX = true;
+        } else if (Math.abs(candidateX - flushLeft) < 0.08) {
+          candidateX = flushLeft;
+          snappedNeighborX = true;
+        }
+      }
+
+      // Z snap: if pallets overlap or touch in X
+      const xClose = Math.abs(candidateX - other.position.x) < (snapW / 2 + otherW / 2 - 0.02);
+      if (xClose && !snappedWallZ && !snappedNeighborZ) {
+        const flushFront = other.position.z + otherL / 2 + snapL / 2;
+        const flushBack = other.position.z - otherL / 2 - snapL / 2;
+        if (Math.abs(candidateZ - flushFront) < 0.08) {
+          candidateZ = flushFront;
+          snappedNeighborZ = true;
+        } else if (Math.abs(candidateZ - flushBack) < 0.08) {
+          candidateZ = flushBack;
+          snappedNeighborZ = true;
+        }
+      }
+    });
+
+    // 3. Fallback to 10cm grid snap if not wall-snapped or neighbor-snapped
+    if (!snappedWallX && !snappedNeighborX) {
+      candidateX = Math.round(candidateX * 10) / 10;
+    }
+    if (!snappedWallZ && !snappedNeighborZ) {
+      candidateZ = Math.round(candidateZ * 10) / 10;
+    }
+
+    mesh.position.x = candidateX;
+    mesh.position.z = candidateZ;
+
+    // Apply vertical positioning
+    if (this.activeMode === '2d') {
+      mesh.position.y = (mesh.userData['height'] || 1.6) / 2;
+    } else {
+      this.applyDiscrete3DPhysicsStacking(mesh, mesh.position.y);
+    }
+
+    this.clampObjectToTrailer(mesh);
+
+    // 4. Validate snapped position
+    if (!this.checkAABBOverlap(mesh) && !this.isOutOfBounds(mesh)) {
+      return; // Snapped position is valid!
+    }
+
+    // 5. Collision detected: try small nudges around snapped position
+    const nudgeDeltas = [
+      { x: 0, z: 0.05 }, { x: 0, z: -0.05 },
+      { x: 0.05, z: 0 }, { x: -0.05, z: 0 },
+      { x: 0, z: 0.1 }, { x: 0, z: -0.1 },
+      { x: 0.1, z: 0 }, { x: -0.1, z: 0 },
+      { x: 0.05, z: 0.05 }, { x: -0.05, z: -0.05 }
+    ];
+
+    const postSnapX = mesh.position.x;
+    const postSnapZ = mesh.position.z;
+
+    for (const d of nudgeDeltas) {
+      mesh.position.x = postSnapX + d.x;
+      mesh.position.z = postSnapZ + d.z;
+      this.clampObjectToTrailer(mesh);
+      if (!this.checkAABBOverlap(mesh) && !this.isOutOfBounds(mesh)) {
+        return; // Valid nudged position found
+      }
+    }
+
+    // 6. Try the pre-snap dragged position (which user saw before mouse release)
+    mesh.position.copy(dragPos);
+    this.clampObjectToTrailer(mesh);
+    if (!this.checkAABBOverlap(mesh) && !this.isOutOfBounds(mesh)) {
+      return; // Pre-snap position is valid
+    }
+
+    // 7. Last resort: revert to position before drag started
+    mesh.position.copy(this.previousPosition);
+    this.clampObjectToTrailer(mesh);
   }
 
   // ─── ROTATE BUTTON HELPERS ────────────────────────────────
@@ -1158,9 +1267,9 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
       const l2 = other.userData['length'] || 1.2;
       const h2 = other.userData['height'] || 1.6;
 
-      const xOverlap = Math.abs(mesh.position.x - other.position.x) < (w1 / 2 + w2 / 2 - 0.005);
-      const zOverlap = Math.abs(mesh.position.z - other.position.z) < (l1 / 2 + l2 / 2 - 0.005);
-      const yOverlap = Math.abs(mesh.position.y - other.position.y) < (h1 / 2 + h2 / 2 - 0.005);
+      const xOverlap = Math.abs(mesh.position.x - other.position.x) < (w1 / 2 + w2 / 2 - this.COLLISION_SKIN);
+      const zOverlap = Math.abs(mesh.position.z - other.position.z) < (l1 / 2 + l2 / 2 - this.COLLISION_SKIN);
+      const yOverlap = Math.abs(mesh.position.y - other.position.y) < (h1 / 2 + h2 / 2 - this.COLLISION_SKIN);
 
       if (xOverlap && zOverlap && yOverlap) {
         collides = true;
@@ -1185,9 +1294,9 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     const tHW = this.trailerW / 2;
     const tHL = this.trailerL / 2;
 
-    if (x - hw < -tHW - 0.05 || x + hw > tHW + 0.05) return true;
-    if (z - hl < -tHL - 0.05 || z + hl > tHL + 0.05) return true;
-    if (y - h / 2 < 0 - 0.05 || y + h / 2 > this.trailerH + 0.05) return true;
+    if (x - hw < -tHW - this.BOUNDS_TOLERANCE || x + hw > tHW + this.BOUNDS_TOLERANCE) return true;
+    if (z - hl < -tHL - this.BOUNDS_TOLERANCE || z + hl > tHL + this.BOUNDS_TOLERANCE) return true;
+    if (y - h / 2 < 0 - this.BOUNDS_TOLERANCE || y + h / 2 > this.trailerH + this.BOUNDS_TOLERANCE) return true;
 
     return false;
   }
@@ -1209,8 +1318,8 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
       const otherL = other.userData['length'] || 1.2;
       const otherH = other.userData['height'] || 1.6;
 
-      const xOverlap = Math.abs(dragged.position.x - other.position.x) < (draggedW / 2 + otherW / 2 - 0.005);
-      const zOverlap = Math.abs(dragged.position.z - other.position.z) < (draggedL / 2 + otherL / 2 - 0.005);
+      const xOverlap = Math.abs(dragged.position.x - other.position.x) < (draggedW / 2 + otherW / 2 - this.COLLISION_SKIN);
+      const zOverlap = Math.abs(dragged.position.z - other.position.z) < (draggedL / 2 + otherL / 2 - this.COLLISION_SKIN);
 
       if (xOverlap && zOverlap) {
         const isStackable = other.userData['stackable'] === true;
@@ -1221,7 +1330,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
             highestStackY = stackY;
           }
         } else {
-          const verticalOverlap = Math.abs(dragged.position.y - other.position.y) < (draggedH / 2 + otherH / 2 - 0.005);
+          const verticalOverlap = Math.abs(dragged.position.y - other.position.y) < (draggedH / 2 + otherH / 2 - this.COLLISION_SKIN);
           if (verticalOverlap) {
             targetY = draggedH / 2;
           }
@@ -1514,9 +1623,9 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
         for (let j = 0; j < occupied.length; j++) {
           if (i === j) continue;
           const other = occupied[j];
-          const xOv = Math.abs(item.x - other.x) < (item.w / 2 + other.w / 2 - 0.005);
-          const zOv = Math.abs(candidateZ - other.z) < (item.l / 2 + other.l / 2 - 0.005);
-          const yOv = Math.abs(item.y - other.y) < (item.h / 2 + other.h / 2 - 0.005);
+          const xOv = Math.abs(item.x - other.x) < (item.w / 2 + other.w / 2 - this.COLLISION_SKIN);
+          const zOv = Math.abs(candidateZ - other.z) < (item.l / 2 + other.l / 2 - this.COLLISION_SKIN);
+          const yOv = Math.abs(item.y - other.y) < (item.h / 2 + other.h / 2 - this.COLLISION_SKIN);
           if (xOv && zOv && yOv) {
             collides = true;
             break;
