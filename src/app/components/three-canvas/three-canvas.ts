@@ -195,6 +195,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     for (let i = 0; i < a.pallets.length; i++) {
       const pa = a.pallets[i], pb = b.pallets[i];
       if (pa.id !== pb.id) return false;
+      if (pa.preset.name !== pb.preset.name) return false;
       if (pa.x !== pb.x || pa.y !== pb.y || pa.z !== pb.z) return false;
       if (pa.rotationY !== pb.rotationY) return false;
       if (pa.preset.color !== pb.preset.color) return false;
@@ -1885,6 +1886,15 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     // ponytail: sort by number for stable display order
     list.sort((a, b) => a.number - b.number);
     return list;
+  }
+
+  /** Update a pallet's name by id */
+  updatePalletNameById(id: string, name: string): void {
+    const bundle = this.pallets.get(id);
+    if (!bundle) return;
+    bundle.preset.name = name;
+    bundle.mesh.userData['name'] = name;
+    this.pushHistory();
   }
 
   /** Update a pallet's color by id */

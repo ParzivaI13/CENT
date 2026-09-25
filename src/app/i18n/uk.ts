@@ -62,7 +62,9 @@ export const uk: Record<string, string> = {
 
   // ─── Live Editor ──────────────────────────────────────
   'editor.trailerTitle': 'Редактор трейлера',
+  'editor.customPalletSection': 'Власна палета',
   'editor.customPalletTitle': 'Створити власну палету',
+  'editor.palletName': 'Назва палети',
   'editor.spawnCustom': 'Додати на сцену',
   'editor.customColor': 'Колір',
   'editor.stackable': 'Штабелювання',

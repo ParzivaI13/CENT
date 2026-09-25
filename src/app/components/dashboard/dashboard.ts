@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ViewChild, DestroyRef, ChangeDetectorRef } from '@angular/core';
+import { Component, inject, OnInit, ViewChild, DestroyRef, ChangeDetectorRef, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Auth, signOut, user, User } from '@angular/fire/auth';
@@ -89,6 +89,8 @@ export class Dashboard implements OnInit {
   liveTrailerW = 2.5;
   liveTrailerH = 2.7;
 
+  customPalletName = '';
+  private isCustomPalletNameDirty = false;
   customPalletL = 1.2;
   customPalletW = 1.0;
   customPalletH = 1.6;
@@ -106,6 +108,14 @@ export class Dashboard implements OnInit {
   private readonly layoutSave$ = new Subject<LayoutSnapshot>();
 
   constructor() {
+    effect(() => {
+      // Reactively keep custom pallet name synced to current language until edited
+      this.i18n.lang();
+      if (!this.isCustomPalletNameDirty) {
+        this.customPalletName = this.i18n.t('editor.customPalletTitle');
+      }
+    });
+
     this.layoutSave$.pipe(
       debounceTime(2000),
       takeUntilDestroyed()
@@ -278,6 +288,12 @@ export class Dashboard implements OnInit {
     }
   }
 
+  onSidebarPalletNameChange(item: PalletListItem): void {
+    if (this.canvasRef) {
+      this.canvasRef.updatePalletNameById(item.id, item.name);
+    }
+  }
+
   onSidebarPalletColorChange(item: PalletListItem): void {
     if (this.canvasRef) {
       this.canvasRef.updatePalletColor(item.id, item.color);
@@ -305,6 +321,10 @@ export class Dashboard implements OnInit {
     }
   }
 
+  onCustomPalletNameInput(): void {
+    this.isCustomPalletNameDirty = true;
+  }
+
   spawnCustomPallet(): void {
     if (!this.canvasRef) return;
     const l = Number(this.customPalletL);
@@ -316,9 +336,11 @@ export class Dashboard implements OnInit {
       return;
     }
 
+    const palletName = this.customPalletName.trim() || this.i18n.t('editor.customPalletTitle');
+
     const customPreset: CargoPreset = {
       id: `custom-${crypto.randomUUID().substring(0, 8)}`,
-      name: this.i18n.t('editor.customPalletTitle'),
+      name: palletName,
       length: l,
       width: w,
       height: h,

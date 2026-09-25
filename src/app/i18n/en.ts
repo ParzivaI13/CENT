@@ -62,7 +62,9 @@ export const en: Record<string, string> = {
 
   // ─── Live Editor ──────────────────────────────────────
   'editor.trailerTitle': 'Trailer Editor',
+  'editor.customPalletSection': 'Custom Pallet',
   'editor.customPalletTitle': 'Spawn Custom Pallet',
+  'editor.palletName': 'Pallet Name',
   'editor.spawnCustom': 'Spawn in Scene',
   'editor.customColor': 'Color',
   'editor.stackable': 'Stackable',

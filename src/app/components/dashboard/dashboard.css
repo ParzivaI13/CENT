@@ -1097,6 +1097,10 @@
   background-color: var(--bg-input-focus);
 }
 
+.custom-pallet-name-group {
+  margin-bottom: 10px;
+}
+
 .form-grid-dimensions {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1323,14 +1327,28 @@
   font-variant-numeric: tabular-nums;
 }
 
-.pallet-list-name {
+.pallet-list-name-input {
   font-size: 11px;
   font-weight: 700;
   color: var(--text-primary);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-family: var(--font-primary);
   flex: 1;
+  min-width: 0;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.pallet-list-name-input:hover {
+  border-color: var(--border-medium);
+}
+
+.pallet-list-name-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  background-color: var(--bg-input-focus);
 }
 
 .btn-pallet-list-delete {
