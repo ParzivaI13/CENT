@@ -97,7 +97,7 @@ export const uk: Record<string, string> = {
   'dashboard.modal.autoLoadSubtitle': 'Оберіть типи палет і встановіть їхню кількість. Алгоритм автоматично розмістить їх у причепі.',
   'dashboard.modal.noPresets': 'Ще немає збережених типів палет. Спершу створіть їх!',
   'dashboard.modal.solveAndLoad': 'Розрахувати та завантажити',
-  'dashboard.modal.allPlaced': '✓ Усі {placed} палет(и) успішно розміщені!',
+  'dashboard.modal.allPlaced': '✓ Усі {placed} палет успішно розміщені!',
   'dashboard.modal.partialPlaced': '⚠ {placed} з {total} палет розміщено. {remaining} не вмістилися.',
 
   // ─── Dashboard Modals — History ───────────────────────
@@ -105,7 +105,7 @@ export const uk: Record<string, string> = {
   'dashboard.modal.historySubtitle': 'Оберіть збережений стан, щоб повернути палети на сцену.',
   'dashboard.modal.noHistory': 'Історія порожня.',
   'dashboard.modal.restoreBtn': 'Відновити',
-  'dashboard.modal.palletsCount': 'палет(и)',
+  'dashboard.modal.palletsCount': 'палет',
 
   // ─── Dashboard Toasts ─────────────────────────────────
   'toast.trailerNameRequired': 'Будь ласка, вкажіть назву для цього причепа.',
@@ -122,6 +122,22 @@ export const uk: Record<string, string> = {
   // ─── Theme ────────────────────────────────────────────
   'theme.dark': 'Темна',
   'theme.light': 'Світла',
+
+  // ─── Export & Import ──────────────────────────────────
+  'dashboard.exportJpg': 'Експорт 2D (JPG)',
+  'dashboard.exportJson': 'Експорт палет (JSON)',
+  'dashboard.importJson': 'Імпорт палет (JSON)',
+  'dashboard.exportingJpg': 'Генерація 2D JPG зображень...',
+  'toast.exportJpgSuccess': 'Успішно експортовано {count} шарів',
+  'toast.exportJsonSuccess': 'Список палет успішно експортовано',
+  'toast.importJsonSuccess': 'Успішно імпортовано {count} палет',
+  'toast.importJsonError': 'Помилка імпорту файлу палет. Невірний формат.',
+  'toast.noPalletsToExport': 'На сцені немає палет для експорту.',
+  'export.layerTitle': 'Шар {layer}',
+  'export.legendTitle': 'Легенда',
+  'export.trailerDimensions': 'Розміри трейлера',
+  'export.cargoCount': 'Всього палет',
+  'export.dimensionsCol': 'РОЗМІРИ (Ш × Д × В мм)',
 
   // ─── Language ─────────────────────────────────────────
   'lang.uk': 'Українська',

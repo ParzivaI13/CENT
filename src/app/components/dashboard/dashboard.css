@@ -225,6 +225,47 @@
   color: var(--text-primary);
 }
 
+.btn-export-jpg {
+  color: var(--accent-purple-text);
+  border-color: var(--accent-purple-border);
+  background: var(--accent-purple-bg);
+}
+
+.btn-export-jpg:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--accent-purple);
+  color: var(--text-primary);
+}
+
+.btn-export-jpg:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.btn-export-json {
+  color: var(--accent-blue);
+  border-color: var(--accent-blue-border);
+  background: var(--accent-blue-bg);
+}
+
+.btn-export-json:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+}
+
+.btn-import-json {
+  color: var(--success-text);
+  border-color: var(--success-border);
+  background: var(--success-bg);
+}
+
+.btn-import-json:hover {
+  background: var(--bg-hover);
+  border-color: var(--success-border-hover);
+  color: var(--text-primary);
+}
+
 .header-act-icon {
   width: 14px;
   height: 14px;
@@ -1256,6 +1297,42 @@
 @keyframes sidebar-slide-in {
   from { opacity: 0; transform: translateX(20px); }
   to { opacity: 1; transform: translateX(0); }
+}
+
+.sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-sidebar-icon-action {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-sidebar-icon-action:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-medium);
+  color: var(--text-primary);
+}
+
+.btn-sidebar-icon-action:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.icon-sm {
+  width: 14px;
+  height: 14px;
 }
 
 .right-sidebar-scroll {

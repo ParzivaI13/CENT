@@ -105,7 +105,7 @@ export const en: Record<string, string> = {
   'dashboard.modal.historySubtitle': 'Select a saved state to restore pallets to the scene.',
   'dashboard.modal.noHistory': 'History is empty.',
   'dashboard.modal.restoreBtn': 'Restore',
-  'dashboard.modal.palletsCount': 'pallet(s)',
+  'dashboard.modal.palletsCount': 'pallets',
 
   // ─── Dashboard Toasts ─────────────────────────────────
   'toast.trailerNameRequired': 'Please provide a name for this trailer.',
@@ -122,6 +122,22 @@ export const en: Record<string, string> = {
   // ─── Theme ────────────────────────────────────────────
   'theme.dark': 'Dark',
   'theme.light': 'Light',
+
+  // ─── Export & Import ──────────────────────────────────
+  'dashboard.exportJpg': 'Export 2D (JPG)',
+  'dashboard.exportJson': 'Export Pallets (JSON)',
+  'dashboard.importJson': 'Import Pallets (JSON)',
+  'dashboard.exportingJpg': 'Generating 2D JPG images...',
+  'toast.exportJpgSuccess': 'Exported {count} layer images successfully',
+  'toast.exportJsonSuccess': 'Pallet list exported successfully',
+  'toast.importJsonSuccess': 'Imported {count} pallets successfully',
+  'toast.importJsonError': 'Failed to import pallet file. Invalid format.',
+  'toast.noPalletsToExport': 'No pallets on the scene to export.',
+  'export.layerTitle': 'Layer {layer}',
+  'export.legendTitle': 'Legend',
+  'export.trailerDimensions': 'Trailer Dimensions',
+  'export.cargoCount': 'Total Pallets',
+  'export.dimensionsCol': 'DIMENSIONS (W × L × H mm)',
 
   // ─── Language ─────────────────────────────────────────
   'lang.uk': 'Українська',

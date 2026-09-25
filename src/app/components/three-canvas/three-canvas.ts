@@ -19,6 +19,24 @@ export interface PalletListItem {
   stackable: boolean;
 }
 
+export interface PlacedPalletExportData {
+  id: string;
+  number: number;
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+  width: number;
+  length: number;
+  height: number;
+  color: string;
+  stackable: boolean;
+  rotationY: number;
+  presetWidth?: number;
+  presetLength?: number;
+  layer?: number;
+}
+
 interface PalletMeshBundle {
   mesh: THREE.Mesh;
   edges: THREE.LineSegments;
@@ -248,9 +266,13 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     this.resetLoad();
     
     for (const p of snapshot.pallets) {
-      // Re-assign pallet numbers to match
-      const palletNum = ++this.palletCounter;
+      // Re-assign or preserve pallet numbers to match
+      const explicitNum = (p as any).number;
+      const palletNum = typeof explicitNum === 'number' && explicitNum > 0 ? explicitNum : ++this.palletCounter;
       this.palletNumbers.set(p.id, palletNum);
+      if (palletNum > this.palletCounter) {
+        this.palletCounter = palletNum;
+      }
       
       const rotated = p.rotationY > 0.1;
       const bundle = this.buildPalletMesh(p.preset, rotated, p.preset.color, p.id);
@@ -719,11 +741,22 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     this.orbitControls.update();
   }
 
+  private suppressTrailerReset = false;
+
+  /** Call before changing activeTrailer to prevent applyTrailerPreset from wiping pallets (e.g. during JSON import) */
+  suppressNextTrailerReset(): void {
+    this.suppressTrailerReset = true;
+  }
+
   private applyTrailerPreset(): void {
     if (!this.trailerBox) return; // not yet initialized
 
     // Clear all pallets when switching trailers to avoid oversized cargo persisting
-    this.resetLoad();
+    if (this.suppressTrailerReset) {
+      this.suppressTrailerReset = false;
+    } else {
+      this.resetLoad();
+    }
 
     const t = this.activeTrailer;
     this.trailerL = t ? t.length : 12.0;
@@ -1661,7 +1694,7 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     const id = 'pallet-' + crypto.randomUUID().substring(0, 8);
     const palletNum = ++this.palletCounter;
     this.palletNumbers.set(id, palletNum);
-    const spawnColor = this.randomHslColor();
+    const spawnColor = preset.color || this.randomHslColor();
 
     const bundle = this.buildPalletMesh(preset, rotated, spawnColor, id);
     const mesh = bundle.mesh;
@@ -1884,6 +1917,32 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
       });
     });
     // ponytail: sort by number for stable display order
+    list.sort((a, b) => a.number - b.number);
+    return list;
+  }
+
+  /** Returns export-ready data for all placed pallets */
+  getPlacedPalletsData(): PlacedPalletExportData[] {
+    const list: PlacedPalletExportData[] = [];
+    this.pallets.forEach((bundle, id) => {
+      const m = bundle.mesh;
+      list.push({
+        id,
+        number: this.palletNumbers.get(id) ?? 0,
+        name: bundle.preset.name,
+        x: m.position.x,
+        y: m.position.y,
+        z: m.position.z,
+        width: m.userData['width'] || bundle.preset.width,
+        length: m.userData['length'] || bundle.preset.length,
+        height: m.userData['height'] || bundle.preset.height,
+        presetWidth: bundle.preset.width,
+        presetLength: bundle.preset.length,
+        color: bundle.preset.color,
+        stackable: bundle.preset.stackable,
+        rotationY: m.rotation.y,
+      });
+    });
     list.sort((a, b) => a.number - b.number);
     return list;
   }

@@ -8,6 +8,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ThreeCanvas } from '../three-canvas/three-canvas';
 import { PalletListItem } from '../three-canvas/three-canvas';
 import { StorageService, TrailerPreset, CargoPreset, LayoutSnapshot } from '../../services/storage.service';
+import { ExportService } from '../../services/export.service';
 import { I18nService } from '../../services/i18n.service';
 import { ThemeService } from '../../services/theme.service';
 
@@ -23,6 +24,7 @@ export class Dashboard implements OnInit {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
   private readonly storageService = inject(StorageService);
+  private readonly exportService = inject(ExportService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly cdr = inject(ChangeDetectorRef);
   readonly i18n = inject(I18nService);
@@ -103,6 +105,9 @@ export class Dashboard implements OnInit {
   /** Toast notifications */
   toasts: { id: number; message: string; type: 'error' | 'success' | 'warning'; removing?: boolean }[] = [];
   private toastCounter = 0;
+
+  /** Exporting 2D JPG state */
+  isExportingJpg = false;
 
   /** Auto-save layout subject */
   private readonly layoutSave$ = new Subject<LayoutSnapshot>();
@@ -678,6 +683,112 @@ export class Dashboard implements OnInit {
       setTimeout(() => {
         this.toasts = this.toasts.filter(t => t.id !== id);
       }, 250);
+    }
+  }
+
+  // ─── Export & Import ─────────────────────────────────────
+
+  async export2dJpg(): Promise<void> {
+    if (!this.canvasRef) return;
+    const pallets = this.canvasRef.getPlacedPalletsData();
+    if (pallets.length === 0) {
+      this.showToast(this.i18n.t('toast.noPalletsToExport'), 'warning');
+      return;
+    }
+
+    this.isExportingJpg = true;
+    try {
+      const count = await this.exportService.exportLoadoutToJpg(this.activeTrailer, pallets);
+      const msg = this.i18n.t('toast.exportJpgSuccess').replace('{count}', count.toString());
+      this.showToast(msg, 'success');
+    } catch (error) {
+      console.error('Failed to export JPG images:', error);
+      this.showToast('Failed to export JPG images', 'error');
+    } finally {
+      this.isExportingJpg = false;
+      this.cdr.markForCheck();
+    }
+  }
+
+  exportPalletListJson(): void {
+    if (!this.canvasRef) return;
+    const pallets = this.canvasRef.getPlacedPalletsData();
+    if (pallets.length === 0) {
+      this.showToast(this.i18n.t('toast.noPalletsToExport'), 'warning');
+      return;
+    }
+
+    try {
+      this.exportService.exportPalletListToJson(this.activeTrailer, pallets);
+      this.showToast(this.i18n.t('toast.exportJsonSuccess'), 'success');
+    } catch (error) {
+      console.error('Failed to export JSON:', error);
+      this.showToast('Failed to export JSON file', 'error');
+    }
+  }
+
+  triggerImportJson(): void {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.onchange = (event: Event) => {
+      this.onJsonFileSelected(event);
+    };
+    input.click();
+  }
+
+  async onJsonFileSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+
+    try {
+      const { trailer, layout, count } = await this.exportService.importPalletListFromJson(file);
+      
+      if (this.canvasRef) {
+        this.canvasRef.suppressNextTrailerReset();
+      }
+
+      if (trailer) {
+        this.activeTrailer = { ...trailer };
+        this.liveTrailerL = trailer.length;
+        this.liveTrailerW = trailer.width;
+        this.liveTrailerH = trailer.height;
+      }
+
+      // Ensure activeTrailer changes propagate to canvas before loading pallets
+      this.cdr.detectChanges();
+
+      if (this.canvasRef && layout.pallets.length > 0) {
+        // Automatically pack imported pallets in the optimum way
+        const items = layout.pallets.map(p => ({
+          preset: { ...p.preset },
+          quantity: 1,
+        }));
+
+        const result = this.canvasRef.autoLoadPallets(items);
+        this.selectedPalletId = null;
+        this.edgeRotatePos = null;
+
+        if (result.placed < result.total) {
+          const warnMsg = this.i18n.t('dashboard.modal.partialPlaced', {
+            placed: result.placed,
+            total: count,
+            remaining: count - result.placed,
+          });
+          this.showToast(warnMsg, 'warning');
+        } else {
+          const msg = this.i18n.t('toast.importJsonSuccess', { count: count.toString() });
+          this.showToast(msg, 'success');
+        }
+      }
+    } catch (error: any) {
+      console.error('Failed to import JSON file:', error);
+      const errorMsg = this.i18n.t('toast.importJsonError') + (error?.message ? `: ${error.message}` : '');
+      this.showToast(errorMsg, 'error');
+    } finally {
+      input.value = '';
+      this.cdr.markForCheck();
     }
   }
 
