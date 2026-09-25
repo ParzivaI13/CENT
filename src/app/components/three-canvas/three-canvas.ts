@@ -337,7 +337,16 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
     this.updateProgressBar();
   }
 
-  private findOptimalSpot(preset: CargoPreset, customOccupied?: any[]): { x: number, y: number, z: number, rotated: boolean } | null {
+  /**
+   * Find an optimal, collision-free, supported spot for a pallet.
+   * ponytail: scores candidate spots across all anchor points and both orientations
+   * to strictly minimize the overall trailer length (max cargo Z extent).
+   */
+  private findOptimalSpot(
+    preset: CargoPreset,
+    customOccupied?: { x: number; y: number; z: number; w: number; l: number; h: number; stackable: boolean }[],
+    preferredOrient?: 'asIs' | 'rotated' | 'forceAsIs' | 'forceRotated'
+  ): { x: number; y: number; z: number; rotated: boolean } | null {
     const occupied = customOccupied || Array.from(this.pallets.values()).map(bundle => {
       const m = bundle.mesh;
       return {
@@ -353,42 +362,77 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
 
     const halfW = this.trailerW / 2;
     const halfL = this.trailerL / 2;
+    const currentMaxZ = occupied.length > 0
+      ? occupied.reduce((max, occ) => Math.max(max, occ.z + occ.l / 2), -halfL)
+      : -halfL;
 
-    const xCoords = new Set<number>([-halfW]);
-    const yCoords = new Set<number>([0]);
-    const zCoords = new Set<number>([-halfL]);
-
-    for (const occ of occupied) {
-      xCoords.add(occ.x + occ.w / 2);
-      if (occ.stackable) yCoords.add(occ.y + occ.h / 2);
-      zCoords.add(occ.z + occ.l / 2);
-    }
-
-    const sortedY = Array.from(yCoords).sort((a, b) => a - b);
-    const sortedZ = Array.from(zCoords).sort((a, b) => a - b);
-    const sortedX = Array.from(xCoords).sort((a, b) => a - b);
-
-    const orientations = [
-      { w: preset.width, l: preset.length },
-      { w: preset.length, l: preset.width },
+    let orientations = [
+      { w: preset.width, l: preset.length, rotated: false },
+      { w: preset.length, l: preset.width, rotated: true },
     ];
 
+    if (preferredOrient === 'forceAsIs') {
+      orientations = [{ w: preset.width, l: preset.length, rotated: false }];
+    } else if (preferredOrient === 'forceRotated') {
+      orientations = [{ w: preset.length, l: preset.width, rotated: true }];
+    } else if (preferredOrient === 'rotated') {
+      orientations.reverse();
+    }
+
     const ph = preset.height;
+    let bestSpot: { x: number; y: number; z: number; rotated: boolean; score: number } | null = null;
 
-    for (const y of sortedY) {
-      for (const z of sortedZ) {
-        for (const x of sortedX) {
-          for (const orient of orientations) {
-            const pw = orient.w;
-            const pl = orient.l;
+    for (const orient of orientations) {
+      const pw = orient.w;
+      const pl = orient.l;
 
+      // Skip if dimensions exceed trailer bounds entirely
+      if (pw > this.trailerW + 0.005 || pl > this.trailerL + 0.005 || ph > this.trailerH + 0.005) {
+        continue;
+      }
+
+      // Generate rich anchor points for this specific orientation
+      const xCoords = new Set<number>([-halfW, halfW - pw]);
+      const yCoords = new Set<number>([0]);
+      const zCoords = new Set<number>([-halfL]);
+
+      for (const occ of occupied) {
+        // X anchors: flush right, left-aligned, flush left, right-aligned
+        xCoords.add(occ.x + occ.w / 2);
+        xCoords.add(occ.x - occ.w / 2);
+        xCoords.add(occ.x - occ.w / 2 - pw);
+        xCoords.add(occ.x + occ.w / 2 - pw);
+
+        // Z anchors: flush front, back-aligned
+        zCoords.add(occ.z + occ.l / 2);
+        zCoords.add(occ.z - occ.l / 2);
+
+        // Y anchors: top of stackable boxes
+        if (occ.stackable) {
+          yCoords.add(occ.y + occ.h / 2);
+        }
+      }
+
+      const sortedY = Array.from(yCoords)
+        .filter(y => y >= -0.005 && y + ph <= this.trailerH + 0.005)
+        .sort((a, b) => a - b);
+      const sortedZ = Array.from(zCoords)
+        .filter(z => z >= -halfL - 0.005 && z + pl <= halfL + 0.005)
+        .sort((a, b) => a - b);
+      const sortedX = Array.from(xCoords)
+        .filter(x => x >= -halfW - 0.005 && x + pw <= halfW + 0.005)
+        .sort((a, b) => a - b);
+
+      for (const y of sortedY) {
+        for (const z of sortedZ) {
+          for (const x of sortedX) {
             const cx = x + pw / 2;
             const cy = y + ph / 2;
             const cz = z + pl / 2;
 
-            if (cx - pw / 2 < -halfW - 0.01 || cx + pw / 2 > halfW + 0.01) continue;
-            if (cz - pl / 2 < -halfL - 0.01 || cz + pl / 2 > halfL + 0.01) continue;
-            if (cy + ph / 2 > this.trailerH + 0.01) continue;
+            if (cx - pw / 2 < -halfW - 0.005 || cx + pw / 2 > halfW + 0.005) continue;
+            if (cz - pl / 2 < -halfL - 0.005 || cz + pl / 2 > halfL + 0.005) continue;
+            if (cy + ph / 2 > this.trailerH + 0.005) continue;
 
             let overlaps = false;
             for (const occ of occupied) {
@@ -400,33 +444,45 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
                 break;
               }
             }
+            if (overlaps) continue;
 
-            if (!overlaps) {
-              let supported = y === 0;
-              if (!supported) {
-                for (const occ of occupied) {
-                  if (occ.stackable && Math.abs((occ.y + occ.h / 2) - y) < 0.01) {
-                    const xOv = Math.abs(cx - occ.x) < (pw / 2 + occ.w / 2 - 0.005);
-                    const zOv = Math.abs(cz - occ.z) < (pl / 2 + occ.l / 2 - 0.005);
-                    if (xOv && zOv) {
-                      supported = true;
-                      break;
-                    }
-                  }
+            let supported = y <= 0.005;
+            if (!supported) {
+              let supportArea = 0;
+              const boxArea = pw * pl;
+              for (const occ of occupied) {
+                if (!occ.stackable) continue;
+                if (Math.abs((occ.y + occ.h / 2) - y) > 0.015) continue;
+                const ox = Math.min(cx + pw / 2, occ.x + occ.w / 2) - Math.max(cx - pw / 2, occ.x - occ.w / 2);
+                const oz = Math.min(cz + pl / 2, occ.z + occ.l / 2) - Math.max(cz - pl / 2, occ.z - occ.l / 2);
+                if (ox > 0.02 && oz > 0.02) {
+                  supportArea += ox * oz;
                 }
               }
+              supported = supportArea >= boxArea * 0.45;
+            }
+            if (!supported) continue;
 
-              if (supported) {
-                return { x: cx, y: cy, z: cz, rotated: orient.w !== preset.width };
-              }
+            const palletFrontZ = cz + pl / 2;
+            const resultingMaxZ = Math.max(currentMaxZ, palletFrontZ);
+
+            // Primary: minimize resulting trailer length (Z-extent)
+            // Secondary: minimize pallet's own front Z (pack as deep into existing gaps as possible)
+            // Tertiary: prefer bottom level (Y=0) before stacking unless stacking saves length
+            // Quaternary: pack flush against left wall
+            const score = resultingMaxZ * 100000 + palletFrontZ * 1000 + y * 50 + (x + halfW) * 1;
+
+            if (!bestSpot || score < bestSpot.score) {
+              bestSpot = { x: cx, y: cy, z: cz, rotated: orient.rotated, score };
             }
           }
         }
       }
     }
 
-    return null;
+    return bestSpot ? { x: bestSpot.x, y: bestSpot.y, z: bestSpot.z, rotated: bestSpot.rotated } : null;
   }
+
 
   /** Rotate the currently selected pallet by 90° if space permits */
   rotateSelected(): boolean {
@@ -1202,8 +1258,12 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
 
   // ─── AUTO-LOADOUT SOLVER ──────────────────────────────────
 
-  /** Auto-load pallets using a bottom-left-fill bin packing algorithm.
-   *  Returns { placed: number, total: number } for UI feedback. */
+  /**
+   * Auto-load pallets using multi-strategy strip packing with Z-length minimization.
+   * Evaluates multiple heuristic orderings & row orientations, runs a compaction pass,
+   * and selects the layout that packs the most cargo into the smallest total trailer length.
+   * Returns { placed: number, total: number } for UI feedback.
+   */
   autoLoadPallets(items: { preset: CargoPreset; quantity: number }[]): { placed: number; total: number } {
     this.resetLoad();
 
@@ -1213,34 +1273,278 @@ export class ThreeCanvas implements OnDestroy, AfterViewInit, OnChanges {
         allPallets.push({ ...item.preset });
       }
     }
-    allPallets.sort((a, b) => (b.width * b.length) - (a.width * a.length));
 
     const total = allPallets.length;
-    let placed = 0;
+    if (total === 0) {
+      return { placed: 0, total: 0 };
+    }
 
-    const occupied: { x: number; z: number; y: number; w: number; l: number; h: number; stackable: boolean }[] = [];
+    interface PlacedItem {
+      preset: CargoPreset;
+      x: number;
+      y: number;
+      z: number;
+      w: number;
+      l: number;
+      h: number;
+      stackable: boolean;
+      rotated: boolean;
+    }
 
-    for (const preset of allPallets) {
-      const spot = this.findOptimalSpot(preset, occupied);
-      if (spot) {
-        this.spawnPalletAt(preset, spot.x, spot.y, spot.z, spot.rotated);
-        occupied.push({
-          x: spot.x,
-          y: spot.y,
-          z: spot.z,
-          w: spot.rotated ? preset.length : preset.width,
-          l: spot.rotated ? preset.width : preset.length,
-          h: preset.height,
-          stackable: preset.stackable
-        });
-        placed++;
+    // Helper to simulate packing a given pallet order with a given orientation preference
+    const simulatePacking = (
+      palletList: CargoPreset[],
+      prefOrient?: 'asIs' | 'rotated' | 'forceAsIs' | 'forceRotated'
+    ): { placed: PlacedItem[]; maxZ: number } => {
+      const occupied: PlacedItem[] = [];
+
+      for (const preset of palletList) {
+        const spot = this.findOptimalSpot(preset, occupied, prefOrient);
+        if (spot) {
+          const pw = spot.rotated ? preset.length : preset.width;
+          const pl = spot.rotated ? preset.width : preset.length;
+          occupied.push({
+            preset,
+            x: spot.x,
+            y: spot.y,
+            z: spot.z,
+            w: pw,
+            l: pl,
+            h: preset.height,
+            stackable: preset.stackable,
+            rotated: spot.rotated
+          });
+        }
+      }
+
+      this.compactOccupied(occupied);
+
+      const halfL = this.trailerL / 2;
+      const maxZ = occupied.length > 0
+        ? occupied.reduce((max, occ) => Math.max(max, occ.z + occ.l / 2), -halfL)
+        : -halfL;
+
+      return { placed: occupied, maxZ };
+    };
+
+    // Helper for mathematically optimal row-partitioning of identical pallets
+    const simulateRowBatched = (palletList: CargoPreset[]): { placed: PlacedItem[]; maxZ: number } => {
+      const occupied: PlacedItem[] = [];
+
+      // Group pallets by preset ID / dimensions
+      const groups = new Map<string, CargoPreset[]>();
+      for (const p of palletList) {
+        const k = `${p.name}_${p.length}_${p.width}_${p.height}`;
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k)!.push(p);
+      }
+
+      for (const [_, group] of groups) {
+        const p0 = group[0];
+        const w = p0.width;
+        const l = p0.length;
+        const k1 = Math.floor(this.trailerW / w);
+        const k2 = Math.floor(this.trailerW / l);
+
+        let bestR1 = 0;
+        let minLen = Infinity;
+        const maxR1 = k1 > 0 ? Math.ceil(group.length / k1) : 0;
+        for (let r1 = 0; r1 <= maxR1; r1++) {
+          const rem = Math.max(0, group.length - r1 * k1);
+          const r2 = k2 > 0 ? Math.ceil(rem / k2) : (rem > 0 ? 9999 : 0);
+          const len = r1 * l + r2 * w;
+          if (len < minLen) {
+            minLen = len;
+            bestR1 = r1;
+          }
+        }
+
+        const count1 = bestR1 * k1;
+        for (let i = 0; i < group.length; i++) {
+          const p = group[i];
+          const force = i < count1 ? 'forceAsIs' : 'forceRotated';
+          const spot = this.findOptimalSpot(p, occupied, force);
+          if (spot) {
+            const pw = spot.rotated ? p.length : p.width;
+            const pl = spot.rotated ? p.width : p.length;
+            occupied.push({
+              preset: p,
+              x: spot.x,
+              y: spot.y,
+              z: spot.z,
+              w: pw,
+              l: pl,
+              h: p.height,
+              stackable: p.stackable,
+              rotated: spot.rotated
+            });
+          }
+        }
+      }
+
+      this.compactOccupied(occupied);
+      const halfL = this.trailerL / 2;
+      const maxZ = occupied.length > 0
+        ? occupied.reduce((max, occ) => Math.max(max, occ.z + occ.l / 2), -halfL)
+        : -halfL;
+      return { placed: occupied, maxZ };
+    };
+
+    // Define multiple heuristic variations to compare
+    const strategies: { name: string; run: () => { placed: PlacedItem[]; maxZ: number } }[] = [
+      // 1. Footprint area desc
+      {
+        name: 'area_desc',
+        run: () => simulatePacking([...allPallets].sort((a, b) => (b.width * b.length) - (a.width * a.length)))
+      },
+      // 2. Volume desc
+      {
+        name: 'volume_desc',
+        run: () => simulatePacking([...allPallets].sort((a, b) => (b.width * b.length * b.height) - (a.width * a.length * a.height)))
+      },
+      // 3. Max dimension desc (standard strip packing best-fit decreasing)
+      {
+        name: 'max_dim_desc',
+        run: () => simulatePacking([...allPallets].sort((a, b) => Math.max(b.width, b.length) - Math.max(a.width, a.length)))
+      },
+      // 4. Min dimension desc
+      {
+        name: 'min_dim_desc',
+        run: () => simulatePacking([...allPallets].sort((a, b) => Math.min(b.width, b.length) - Math.min(a.width, a.length)))
+      },
+      // 5. Presets grouped (keep identical cargo together for neat rows)
+      {
+        name: 'grouped_presets',
+        run: () => {
+          const map = new Map<string, CargoPreset[]>();
+          for (const p of allPallets) {
+            const k = `${p.name}_${p.length}_${p.width}_${p.height}`;
+            if (!map.has(k)) map.set(k, []);
+            map.get(k)!.push(p);
+          }
+          return simulatePacking(Array.from(map.values()).flat());
+        }
+      },
+      // 6. Presets grouped with rotated bias
+      {
+        name: 'grouped_presets_rotated',
+        run: () => {
+          const map = new Map<string, CargoPreset[]>();
+          for (const p of allPallets) {
+            const k = `${p.name}_${p.length}_${p.width}_${p.height}`;
+            if (!map.has(k)) map.set(k, []);
+            map.get(k)!.push(p);
+          }
+          return simulatePacking(Array.from(map.values()).flat(), 'rotated');
+        }
+      },
+      // 7. Stackable first, then area desc
+      {
+        name: 'stackable_first',
+        run: () => simulatePacking([...allPallets].sort((a, b) => {
+          if (a.stackable !== b.stackable) return a.stackable ? -1 : 1;
+          return (b.width * b.length) - (a.width * a.length);
+        }))
+      },
+      // 8. Forced as-is orientation
+      {
+        name: 'forced_asIs',
+        run: () => simulatePacking([...allPallets], 'forceAsIs')
+      },
+      // 9. Forced rotated orientation
+      {
+        name: 'forced_rotated',
+        run: () => simulatePacking([...allPallets], 'forceRotated')
+      },
+      // 10. Mathematically optimal row batching
+      {
+        name: 'row_batched',
+        run: () => simulateRowBatched([...allPallets])
+      }
+    ];
+
+    let bestResult: { placed: PlacedItem[]; maxZ: number } | null = null;
+    let bestScore = Infinity;
+
+    for (const strat of strategies) {
+      const result = strat.run();
+      const unplacedPenalty = (total - result.placed.length) * 1000000;
+      const lengthScore = (result.maxZ + this.trailerL / 2) * 1000;
+      const score = unplacedPenalty + lengthScore;
+
+      if (!bestResult || score < bestScore) {
+        bestScore = score;
+        bestResult = result;
+      }
+    }
+
+    if (bestResult) {
+      for (const item of bestResult.placed) {
+        this.spawnPalletAt(item.preset, item.x, item.y, item.z, item.rotated);
       }
     }
 
     this.emitPalletList();
     this.pushHistory();
     this.updateProgressBar();
-    return { placed, total };
+    return { placed: bestResult ? bestResult.placed.length : 0, total };
+  }
+
+  /**
+   * ponytail: compact placed items towards -halfL (back wall) to eliminate any gaps.
+   */
+  private compactOccupied(
+    occupied: { preset: CargoPreset; x: number; y: number; z: number; w: number; l: number; h: number; stackable: boolean; rotated: boolean }[]
+  ): void {
+    if (occupied.length <= 1) return;
+
+    const halfL = this.trailerL / 2;
+
+    // Sort items by z ascending (from back to front)
+    occupied.sort((a, b) => a.z - b.z);
+
+    for (let i = 0; i < occupied.length; i++) {
+      const item = occupied[i];
+      let testZ = item.z;
+      const minPossibleZ = -halfL + item.l / 2;
+
+      while (testZ - 0.05 >= minPossibleZ - 0.001) {
+        const candidateZ = testZ - 0.05;
+        let collides = false;
+        for (let j = 0; j < occupied.length; j++) {
+          if (i === j) continue;
+          const other = occupied[j];
+          const xOv = Math.abs(item.x - other.x) < (item.w / 2 + other.w / 2 - 0.005);
+          const zOv = Math.abs(candidateZ - other.z) < (item.l / 2 + other.l / 2 - 0.005);
+          const yOv = Math.abs(item.y - other.y) < (item.h / 2 + other.h / 2 - 0.005);
+          if (xOv && zOv && yOv) {
+            collides = true;
+            break;
+          }
+        }
+        if (collides) break;
+
+        const targetY = item.y - item.h / 2;
+        let supported = targetY <= 0.005;
+        if (!supported) {
+          let supportArea = 0;
+          for (let j = 0; j < occupied.length; j++) {
+            if (i === j) continue;
+            const other = occupied[j];
+            if (!other.stackable) continue;
+            if (Math.abs((other.y + other.h / 2) - targetY) > 0.015) continue;
+            const ox = Math.min(item.x + item.w / 2, other.x + other.w / 2) - Math.max(item.x - item.w / 2, other.x - other.w / 2);
+            const oz = Math.min(candidateZ + item.l / 2, other.z + other.l / 2) - Math.max(candidateZ - item.l / 2, other.z - other.l / 2);
+            if (ox > 0.02 && oz > 0.02) supportArea += ox * oz;
+          }
+          supported = supportArea >= (item.w * item.l) * 0.45;
+        }
+        if (!supported) break;
+
+        testZ = candidateZ;
+      }
+      item.z = Math.round(testZ * 100) / 100;
+    }
   }
 
   private spawnPalletAt(preset: CargoPreset, x: number, y: number, z: number, rotated: boolean): void {
